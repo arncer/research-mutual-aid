@@ -1,0 +1,15 @@
+{
+  "name": "research-mutual-aid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "科研互助平台：静态页面托管 + 同源文献元数据查询接口（/api/paper-meta）",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

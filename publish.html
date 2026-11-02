@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>发布求助 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="card">
+    <h2>发布论文求助</h2>
+    <div class="msg" id="msg"></div>
+
+    <div id="need-paper">
+      <p class="muted">发布求助前，请先在「论文查询」页确认论文信息：支持 DOI 查询，也支持没有 DOI 时手动填写论文信息。</p>
+      <div class="doi-search">
+        <input type="text" id="doi-input" placeholder="输入 DOI 或 DOI 链接">
+        <button class="btn" id="doi-go" style="margin-top:0">查询并继续</button>
+      </div>
+      <div class="btn-row" style="margin-top:10px">
+        <a class="btn btn-secondary" href="paper.html">没有 DOI？去手动填写论文信息</a>
+      </div>
+    </div>
+
+    <div id="form-area" class="hidden">
+      <h3>论文信息</h3>
+      <div id="paper-info" style="margin-bottom:8px"></div>
+      <div class="btn-row" style="margin-bottom:10px">
+        <a class="btn btn-secondary btn-sm" href="paper.html">论文信息需要修改？返回论文查询页</a>
+      </div>
+
+      <div id="history-area"></div>
+
+      <div class="bounty-box">
+        <h3>本次悬赏</h3>
+        <div class="bounty-amount">5 积分</div>
+        <p class="muted">每次新发布的求助统一悬赏 <strong>5 积分</strong>，金额由服务端固定，不可自行修改。发布成功后将从你的可用积分中预留 5 积分，求助人审核通过某个应助文件后支付给该应助人；求助取消或关闭时退还给你。</p>
+        <div class="field-row" style="border-bottom:none;padding-top:4px">
+          <span class="k">我的可用积分</span>
+          <span class="v" id="my-balance">加载中…</span>
+        </div>
+      </div>
+
+      <label for="desc">求助说明（选填）</label>
+      <textarea id="desc" placeholder="说明你需要的帮助，例如：需要该论文全文用于课程研究，已尝试图书馆订阅但未覆盖该期刊…（可留空）"></textarea>
+
+      <button class="btn" id="submit-btn">发布求助</button>
+    </div>
+  </div>
+  <div class="footer">科研互助平台 · 发布求助</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/doi-core.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var session = null;
+var profile = null;
+var paper = null;
+var msg = document.getElementById('msg');
+
+APP.initPage('publish').then(function (r) {
+  session = r.session;
+  profile = r.profile;
+  if (!session) {
+    var next = encodeURIComponent('publish.html' + location.search);
+    location.href = 'login.html?next=' + next;
+    return;
+  }
+  var pid = parseInt(APP.qs('pid'), 10);
+  var doi = APP.normalizeDoi(APP.qs('doi') || '');
+  loadBalance();
+  if (pid) loadPaperById(pid);
+  else if (doi) loadPaperByDoi(doi);
+});
+
+var myBalance = null;
+
+// 读取真实可用积分（服务端函数返回，前端不做任何本地估算）
+function loadBalance() {
+  var el = document.getElementById('my-balance');
+  APP.ensureMyPoints()
+    .then(function (r) {
+      myBalance = (r && r.balance !== undefined) ? r.balance : null;
+      if (myBalance === null) throw new Error('未获取到积分余额');
+      el.innerHTML = '<strong>' + myBalance + '</strong> 积分' +
+        (myBalance < APP.POINTS.BOUNTY
+          ? '　<span style="color:#b91c1c">积分不足，至少需要 ' + APP.POINTS.BOUNTY + ' 积分才能发布求助，请先到个人中心每日签到。</span>'
+          : '　<span class="muted">发布后将预留 ' + APP.POINTS.BOUNTY + ' 积分，剩余 ' + (myBalance - APP.POINTS.BOUNTY) + ' 积分。</span>');
+    })
+    .catch(function (err) {
+      el.innerHTML = '<span style="color:#b91c1c">加载失败：' + APP.escapeHtml(err.message || '未知错误') + '</span>';
+    });
+}
+
+document.getElementById('doi-go').addEventListener('click', function () {
+  var doi = APP.normalizeDoi(document.getElementById('doi-input').value);
+  if (!doi) { APP.showMsg(msg, 'DOI 格式不正确。如果没有 DOI，请点击上方「没有 DOI？去手动填写论文信息」。', 'error'); return; }
+  loadPaperByDoi(doi);
+});
+
+function loadPaperById(pid) {
+  APP.showMsg(msg, '正在加载论文信息…', 'info');
+  APP.findPaperById(pid).then(function (p) {
+    if (!p) throw new Error('未找到该论文记录，请返回论文查询页重新选择。');
+    paper = p;
+    afterPaperLoaded();
+  }).catch(function (err) { APP.showMsg(msg, err.message, 'error'); });
+}
+
+function loadPaperByDoi(doi) {
+  APP.showMsg(msg, '正在加载论文信息（先查本地论文库，再查外部文献服务）…', 'info');
+  APP.findLocalPaper(doi).then(function (local) {
+    if (local && local.source === 'papers') return local.paper; // 论文库已有：直接复用，不重复创建
+    var fetched = local
+      ? Promise.resolve({ paper: local.paper, source: 'help_requests' })
+      : APP.fetchPaperMetadata(doi);
+    return fetched.then(function (res) {
+      // 历史求助快照 / 外部元数据：经 savePaper 去重后入库（已存在则直接返回已有记录，不覆盖）
+      return APP.savePaper(res.paper).then(function (saved) { return saved || res.paper; });
+    });
+  }).then(function (p) {
+    paper = p;
+    afterPaperLoaded();
+  }).catch(function (err) {
+    APP.showMsg(msg, (err && err.message) || '加载失败', 'error');
+  });
+}
+
+function afterPaperLoaded() {
+  renderPaperInfo();
+  APP.showMsg(msg, '', 'info');
+  APP.findDuplicateRequests(paper).then(function (res) {
+    renderHistory(res);
+    document.getElementById('need-paper').classList.add('hidden');
+    document.getElementById('form-area').classList.remove('hidden');
+  }).catch(function (err) { APP.showMsg(msg, err.message, 'error'); });
+}
+
+function renderPaperInfo() {
+  document.getElementById('paper-info').innerHTML = APP.paperMetaRows(paper);
+}
+
+function renderHistory(res) {
+  var box = document.getElementById('history-area');
+  if (res.by === 'none') {
+    box.innerHTML = '<div class="msg warn">信息不足，无法可靠判断是否重复：当前既没有 DOI，也没有论文标题。</div>';
+    return;
+  }
+  var all = (res.exact || []).concat(res.possible || []);
+  if (!all.length) {
+    box.innerHTML = '<p class="muted">' + (res.by === 'doi' ? '没有相同 DOI 的历史求助，可以放心发布。' : '没有发现标题或期刊信息相近的历史求助。') + '</p>';
+    return;
+  }
+  var html = '<div class="msg warn"><strong>查重提醒：</strong>已存在 ' + all.length + ' 条可能重复的历史求助。请先查看已有求助，确认仍需发布后再提交。' +
+    '<ul style="margin:8px 0 0 18px">' +
+    all.map(function (it) {
+      return '<li>' + APP.statusBadge(it.status) + ' 发布于 ' + APP.fmtTime(it.created_at) +
+        ' <a href="request.html?id=' + it.id + '" target="_blank">查看求助 #' + it.id + '</a></li>';
+    }).join('') + '</ul></div>';
+  box.innerHTML = html;
+}
+
+document.getElementById('submit-btn').addEventListener('click', function () {
+  if (!session || !paper) return;
+  if (!paper.title && !paper.doi) {
+    APP.showMsg(msg, '论文信息不完整，请返回论文查询页填写论文标题或 DOI。', 'error');
+    return;
+  }
+  var desc = document.getElementById('desc').value.trim(); // 求助说明选填
+  var btn = document.getElementById('submit-btn');
+
+  // 前端预检（真正的强制校验在服务端：积分不足会被服务端拒绝，悬赏金额也由服务端固定为 5）
+  if (myBalance !== null && myBalance < APP.POINTS.BOUNTY) {
+    APP.showMsg(msg, '可用积分不足：发布求助需要预留 ' + APP.POINTS.BOUNTY +
+      ' 积分，当前仅 ' + myBalance + ' 积分。请到个人中心进行每日签到（每次 +5 积分）后再发布。', 'error');
+    return;
+  }
+  if (!confirm('确认发布？\n\n本次悬赏固定为 5 积分，发布成功后将从你的可用积分中预留 5 积分（状态：已预留 · 待支付）。\n' +
+    '求助人审核通过某个应助文件后，这 5 积分将支付给该应助人；求助取消或关闭时退还给你。')) {
+    return;
+  }
+
+  btn.disabled = true;
+  APP.showMsg(msg, '正在发布并预留悬赏积分…', 'info');
+  // 走服务端函数：创建求助 + 校验余额 + 扣除并预留 5 积分在同一事务内完成，任一步失败整体回滚
+  APP.createRequestWithBounty({
+    paper_id: paper.id || null,
+    doi: paper.doi || null,                 // 无 DOI 时为空，不生成虚假 DOI
+    paper_title: paper.title || null,
+    authors: paper.authors || null,
+    journal: paper.journal || null,
+    journal_type: paper.journal_type || null,
+    published_year: paper.published_year || null,
+    volume: paper.volume || null,
+    issue: paper.issue || null,
+    pages: paper.pages || null,
+    publisher: paper.publisher || null,
+    source_url: paper.source_url || paper.doi_url || null,
+    description: desc || null,              // 可为空
+    owner_name: APP.displayName(session, profile) || null
+  }).then(function (res) {
+    btn.disabled = false;
+    if (!res || !res.id) {
+      APP.showMsg(msg, '发布失败：未获得发布结果，请确认已登录。', 'error');
+      return;
+    }
+    APP.showMsg(msg, '发布成功，已预留 ' + res.bounty_points + ' 积分悬赏，剩余可用 ' +
+      res.balance + ' 积分。正在跳转到求助详情…', 'success');
+    setTimeout(function () { location.href = 'request.html?id=' + res.id; }, 800);
+  }).catch(function (err) {
+    btn.disabled = false;
+    APP.showMsg(msg, '发布失败：' + (err.message || '未知错误') + '（积分不会被扣除）', 'error');
+    loadBalance();
+  });
+});
+</script>
+</body>
+</html>

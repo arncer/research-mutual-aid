@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>求助详情 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="msg" id="msg"></div>
+
+  <div class="card" id="detail-card">
+    <h2>求助详情</h2>
+    <div id="detail"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div id="oa-area"></div>
+
+  <div class="card">
+    <h2>应助附件</h2>
+    <div id="att-list"><p class="muted">加载中…</p></div>
+
+    <div id="upload-area" class="hidden" style="margin-top:18px;border-top:1px solid #e5e7eb;padding-top:14px">
+      <h3>上传应助文件（仅 PDF，最大 20MB）</h3>
+      <div class="msg warn" style="display:block">上传即表示你确认有权分享该文件。学校订阅资源不能默认作为可公开分发的文件；新附件默认为「待审核」，由求助发布者审核通过后才能公开下载。</div>
+      <label for="file">选择 PDF 文件</label>
+      <input type="file" id="file" accept="application/pdf,.pdf">
+      <label for="att_oa">开放获取来源链接（选填）</label>
+      <input type="text" id="att_oa" placeholder="该文件的合法来源链接">
+      <label for="att_license">许可类型 / 授权依据（选填）</label>
+      <input type="text" id="att_license" placeholder="如 CC BY 4.0、作者书面授权">
+      <label for="att_note">补充说明（选填）</label>
+      <textarea id="att_note" style="min-height:60px"></textarea>
+      <div class="checkbox-row">
+        <input type="checkbox" id="att_confirm">
+        <span><strong>必选：</strong>上传即表示你确认有权分享该文件。我已阅读并同意该声明。</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="upload-btn">上传附件</button>
+      </div>
+    </div>
+    <div id="upload-blocked" class="hidden"><div class="msg info" style="display:block" id="upload-blocked-text"></div></div>
+    <div id="upload-login" class="hidden"><p class="muted">登录后可上传应助文件参与互助。<a href="login.html">去登录</a></p></div>
+  </div>
+
+  <div class="footer">科研互助平台 · 求助详情</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var id = parseInt(APP.qs('id'), 10);
+var session = null;
+var profile = null;
+var isAdmin = false;
+var req = null;
+var msg = document.getElementById('msg');
+
+if (!id) {
+  APP.showMsg(msg, '缺少求助 ID 参数。', 'error');
+  document.getElementById('detail').innerHTML = '';
+}
+
+APP.initPage('square').then(function (r) {
+  session = r.session;
+  profile = r.profile;
+  isAdmin = r.isAdmin;
+  if (!id) return;
+  loadDetail();
+});
+
+function isRequestOwner() {
+  return session && req && session.user.id === req.owner_id;
+}
+
+function loadDetail() {
+  APP.cloud.database.from('help_requests').select('*').eq('id', id).maybeSingle()
+    .then(function (r) {
+      if (r.error) throw new Error('加载失败：' + r.error.message);
+      if (!r.data) throw new Error('该求助不存在或已被删除。');
+      req = r.data;
+      renderDetail();
+      return APP.cloud.database.from('papers').select('*').eq('id', req.paper_id || -1).maybeSingle();
+    })
+    .then(function (pr) {
+      renderPaper(pr && pr.data);
+      loadAttachments();
+    })
+    .catch(function (err) {
+      APP.showMsg(msg, err.message, 'error');
+      document.getElementById('detail').innerHTML = '';
+    });
+}
+
+function renderDetail() {
+  function row(k, v) {
+    return '<div class="field-row"><span class="k">' + k + '</span><span class="v">' + (v || '<em class="muted">暂未提供</em>') + '</span></div>';
+  }
+  var html = '';
+  html += row('求助编号', '#' + req.id);
+  html += row('状态', APP.statusBadge(req.status));
+  html += row('悬赏', APP.bountyBadge(req));
+  html += row('求助说明', APP.escapeHtml(req.description || ''));
+  html += row('发布者', APP.escapeHtml(req.owner_name || '未设置昵称'));
+  html += row('发布时间', APP.fmtTime(req.created_at));
+  html += row('最近更新', APP.fmtTime(req.updated_at));
+  if (req.status === 'completed' || req.bounty_paid_at) {
+    html += row('完成时间', APP.fmtTime(req.completed_at || req.bounty_paid_at));
+  }
+  if (req.status === 'completed') {
+    html += row('文件保留期', APP.fileExpiryText(req));
+  }
+  if (req.bounty_status === 'paid') {
+    html += row('悬赏支付', '已支付 ' + (req.bounty_points || 0) + ' 积分给应助人（' + APP.fmtTime(req.bounty_paid_at) + '）');
+  } else if (req.bounty_status === 'refunded') {
+    html += row('悬赏退还', '已退还 ' + (req.bounty_points || 0) + ' 积分给发布者（' + APP.fmtTime(req.bounty_refunded_at) + '）');
+  } else if (req.bounty_status === 'locked') {
+    html += row('悬赏状态', '已预留，待求助人审核通过 / 管理员复核裁定后支付或退还');
+  }
+  if (req.status === 'invalid') {
+    html += row('失效原因', APP.escapeHtml(req.invalid_reason || '管理员判定无效'));
+  }
+  document.getElementById('detail').innerHTML = html;
+
+  // 状态操作：仅在「求助中」且没有任何待审附件时，发布者/管理员才能关闭或取消（关闭会退还预留悬赏）
+  var canChangeStatus = (isRequestOwner() || isAdmin) &&
+    (req.status === 'open' || req.status === 'seeking' || req.status === 'in_progress');
+  if (canChangeStatus) {
+    var ctl = document.createElement('div');
+    ctl.className = 'btn-row';
+    ctl.innerHTML = '<label style="margin:0" for="status-sel">更新状态：</label>' +
+      '<select id="status-sel" style="max-width:160px">' +
+      ['open', 'closed'].map(function (s) {
+        var t = { open: '求助中', closed: '已关闭 / 取消' }[s];
+        return '<option value="' + s + '"' + ((req.status === s) ? ' selected' : '') + '>' + t + '</option>';
+      }).join('') + '</select><button class="btn btn-sm" id="status-save">保存</button>';
+    document.getElementById('detail-card').appendChild(ctl);
+    document.getElementById('status-save').addEventListener('click', function () {
+      var st = document.getElementById('status-sel').value;
+      var tip = (st === 'closed' && req.bounty_status === 'locked')
+        ? '\n\n关闭后该求助预留的 ' + (req.bounty_points || 0) + ' 积分悬赏将退还给你（只退还一次），且不再接受新的应助文件。确定继续？'
+        : '\n\n确定更新状态？';
+      if (!confirm('将把该求助状态改为「' + ({ open: '求助中', closed: '已关闭 / 取消' })[st] + '」。' + tip)) return;
+      APP.setRequestStatus(req.id, st)
+        .then(function (r) {
+          APP.showMsg(msg, (r && r.refunded)
+            ? ('状态已更新为「已关闭」，已退还 ' + r.refund_points + ' 积分。')
+            : '状态已更新。', 'success');
+          setTimeout(function () { location.reload(); }, 700);
+        })
+        .catch(function (err) {
+          APP.showMsg(msg, '更新失败：' + (err.message || '未知错误'), 'error');
+        });
+    });
+  } else if ((isRequestOwner() || isAdmin) &&
+             (req.status === 'pending_requester_review' || req.status === 'pending_admin_review')) {
+    var tipBox = document.createElement('div');
+    tipBox.className = 'msg info';
+    tipBox.style.display = 'block';
+    tipBox.textContent = req.status === 'pending_admin_review'
+      ? '该求助的应助文件已提交管理员复核，复核期间悬赏积分暂不支付或退还，且不能取消求助或退款。'
+      : '已有应助文件等待求助人审核，审核期间不能取消求助或申请退还悬赏积分。';
+    document.getElementById('detail-card').appendChild(tipBox);
+  }
+}
+
+function renderPaper(p) {
+  // 优先使用求助记录中保存的论文快照（兼容无 DOI / 手动填写 / 论文库缺失的情况），
+  // 缺失字段再回退到关联的 papers 记录；为空时显示「暂未提供」
+  var src = {
+    title: req.paper_title || (p && p.title),
+    authors: req.authors || (p && p.authors),
+    journal: req.journal || (p && p.journal),
+    journal_type: req.journal_type || (p && p.journal_type),
+    published_year: req.published_year || (p && p.published_year),
+    volume: req.volume || (p && p.volume),
+    issue: req.issue || (p && p.issue),
+    pages: req.pages || (p && p.pages),
+    publisher: req.publisher || (p && p.publisher),
+    doi: req.doi || (p && p.doi),
+    source_url: req.source_url || (p && (p.source_url || p.doi_url))
+  };
+  var info = APP.paperMetaRows(src);
+  if (src.doi) {
+    info += '<div class="field-row"><span class="k">查询该论文</span><span class="v"><a href="paper.html?doi=' +
+      encodeURIComponent(src.doi) + '">在论文查询页查看 / 查重 →</a></span></div>';
+  }
+  document.getElementById('detail').insertAdjacentHTML('beforeend', '<h3 style="margin:14px 0 6px">论文信息</h3>' + info);
+
+  document.getElementById('oa-area').innerHTML = APP.renderOaBlock({
+    oa_link: req.oa_link || (p && p.oa_url) || '',
+    license_type: req.license_type || (p && p.license) || '',
+    license_note: req.license_note || ''
+  });
+}
+
+function canDownload(a) {
+  if (!session) return false;
+  if (req.status === 'invalid') return false;                 // 失效求助一律不可下载
+  var expired = APP.isFileExpired(req);
+  // 审核通过：完成且未过期时可下载（登录用户）；已过期不可下载
+  if (a.status === 'approved') return !expired;
+  // 待求助人审核：仅求助人和管理员可下载检查（上传者本人也不行）
+  if (a.status === 'pending') return isRequestOwner() || isAdmin;
+  // 待管理员复核：仅求助人和管理员可下载
+  if (a.status === 'rejected_by_requester') return isRequestOwner() || isAdmin;
+  // 管理员可查看历史（但实际文件已随过期删除）
+  if (a.status === 'rejected_by_admin' || a.status === 'closed') return isAdmin;
+  return false;                                               // expired 等一律不可下载
+}
+
+function loadAttachments() {
+  APP.cloud.database.from('attachments').select('*').eq('request_id', id)
+    .order('created_at', { ascending: false })
+    .then(function (r) {
+      var box = document.getElementById('att-list');
+      if (r.error) { box.innerHTML = '<p class="muted">附件加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) {
+        box.innerHTML = '<p class="muted">暂无附件。</p>';
+      } else {
+        box.innerHTML = r.data.map(function (a) {
+          var size = a.size_bytes ? (a.size_bytes / 1024 / 1024).toFixed(2) + ' MB' : '未知大小';
+          var html = '<div class="req-item"><h3>' + APP.escapeHtml(a.file_name) + ' ' + APP.attStatusBadge(a.status) + '</h3>' +
+            '<div class="meta"><span>大小：' + size + '</span><span>上传者：' + APP.escapeHtml(a.owner_name || '未设置昵称') + '</span><span>' + APP.fmtTime(a.created_at) + '</span></div>';
+          html += APP.renderOaBlock({
+            oa_source_url: a.oa_source_url, license_type: a.license_type,
+            license_note: a.license_note, share_confirmed: a.share_confirmed
+          });
+          if (a.review_note) {
+            html += '<p class="muted">审核意见：' + APP.escapeHtml(a.review_note) + (a.reviewed_at ? '（' + APP.fmtTime(a.reviewed_at) + '）' : '') + '</p>';
+          }
+          if (a.status === 'approved' && req.bounty_status === 'paid' && req.bounty_paid_to === a.owner_id) {
+            html += '<p class="muted">该附件审核通过，' + (req.bounty_points || 0) + ' 积分悬赏已支付给上传者。</p>';
+          }
+          // 下载入口（权限同时在服务端 attachment_files 策略中强制）
+          if (canDownload(a)) {
+            html += '<div class="btn-row"><button class="btn btn-sm" data-dl="' + a.id + '" data-name="' + APP.escapeHtml(a.file_name) + '">下载附件</button></div>';
+          } else if (a.status === 'pending') {
+            html += '<p class="muted">待审核：仅求助发布者和管理员可下载检查，审核通过后开放下载。</p>';
+          } else if (a.status === 'rejected_by_requester') {
+            html += '<p class="muted">求助人初审不通过，等待管理员复核：仅求助发布者和管理员可下载检查。</p>';
+          } else if (a.status === 'rejected_by_admin') {
+            html += '<p class="muted">管理员最终判定该文件不符合要求，不提供下载。</p>';
+          } else if (a.status === 'expired') {
+            html += '<p class="muted">该文件已过 48 小时保留期并被清理，无法下载（求助与审核记录仍保留）。</p>';
+          } else if (a.status === 'rejected') {
+            html += '<p class="muted">该附件审核不通过，不提供下载。</p>';
+          } else if (a.status === 'closed') {
+            html += '<p class="muted">该附件未被采纳，不提供下载。</p>';
+          }
+          // 求助人审核操作：仅该求助的真实发布者，且附件处于待审核
+          if (a.status === 'pending' && isRequestOwner() && req.status === 'pending_requester_review') {
+            html += '<div class="btn-row" style="margin-top:8px"><input type="text" id="note-' + a.id + '" placeholder="审核意见（不通过时必填）" style="flex:1;min-width:200px">' +
+              '<button class="btn btn-sm btn-success" data-approve="' + a.id + '">审核通过</button>' +
+              '<button class="btn btn-sm btn-danger" data-reject="' + a.id + '">审核不通过</button></div>';
+          }
+          // 管理员最终复核入口：仅待管理员复核状态
+          if (a.status === 'rejected_by_requester' && req.status === 'pending_admin_review' && isAdmin) {
+            html += '<div class="btn-row" style="margin-top:8px"><input type="text" id="note-' + a.id + '" placeholder="管理员最终审核意见（必填）" style="flex:1;min-width:200px">' +
+              '<button class="btn btn-sm btn-success" data-admin-conform="' + a.id + '">文件符合要求</button>' +
+              '<button class="btn btn-sm btn-danger" data-admin-nonconform="' + a.id + '">文件不符合要求</button></div>';
+          }
+          html += '</div>';
+          return html;
+        }).join('');
+
+        Array.prototype.forEach.call(box.querySelectorAll('[data-dl]'), function (btn) {
+          btn.addEventListener('click', function () { downloadAttachment(parseInt(btn.getAttribute('data-dl'), 10), btn.getAttribute('data-name')); });
+        });
+        Array.prototype.forEach.call(box.querySelectorAll('[data-approve]'), function (btn) {
+          btn.addEventListener('click', function () { reviewAttachment(parseInt(btn.getAttribute('data-approve'), 10), 'approve'); });
+        });
+        Array.prototype.forEach.call(box.querySelectorAll('[data-reject]'), function (btn) {
+          btn.addEventListener('click', function () { reviewAttachment(parseInt(btn.getAttribute('data-reject'), 10), 'reject'); });
+        });
+        Array.prototype.forEach.call(box.querySelectorAll('[data-admin-conform]'), function (btn) {
+          btn.addEventListener('click', function () { adminReviewAttachment(parseInt(btn.getAttribute('data-admin-conform'), 10), 'conform'); });
+        });
+        Array.prototype.forEach.call(box.querySelectorAll('[data-admin-nonconform]'), function (btn) {
+          btn.addEventListener('click', function () { adminReviewAttachment(parseInt(btn.getAttribute('data-admin-nonconform'), 10), 'nonconform'); });
+        });
+      }
+      renderUploadArea();
+    });
+}
+
+function renderUploadArea() {
+  var area = document.getElementById('upload-area');
+  var blocked = document.getElementById('upload-blocked');
+  var login = document.getElementById('upload-login');
+  area.classList.add('hidden'); blocked.classList.add('hidden'); login.classList.add('hidden');
+
+  if (req.status === 'completed') {
+    document.getElementById('upload-blocked-text').textContent = APP.isFileExpired(req)
+      ? '该求助已完成，文件已过 48 小时保留期并被清理，不再接受新的应助文件。'
+      : '该求助已完成，不再接受新的应助文件。';
+    blocked.classList.remove('hidden');
+    return;
+  }
+  if (req.status === 'closed' || req.status === 'invalid') {
+    document.getElementById('upload-blocked-text').textContent = req.status === 'invalid'
+      ? '该求助已被判定无效，不再接受新的应助文件。'
+      : '该求助已关闭，不再接受新的应助文件。';
+    blocked.classList.remove('hidden');
+    return;
+  }
+  if (req.status === 'pending_requester_review') {
+    document.getElementById('upload-blocked-text').textContent = '已有应助文件，等待求助人审核；其他用户暂不能上传。';
+    blocked.classList.remove('hidden');
+    return;
+  }
+  if (req.status === 'pending_admin_review') {
+    document.getElementById('upload-blocked-text').textContent = '应助文件正在管理员复核中，暂不接受新的应助文件。';
+    blocked.classList.remove('hidden');
+    return;
+  }
+  if (!session) { login.classList.remove('hidden'); return; }
+  if (isRequestOwner()) {
+    document.getElementById('upload-blocked-text').textContent = '你是该求助的发布者，请等待其他用户上传应助文件后在此审核。';
+    blocked.classList.remove('hidden');
+    return;
+  }
+  area.classList.remove('hidden');
+}
+
+function downloadAttachment(attId, fileName) {
+  if (!session) { APP.showMsg(msg, '请先登录后再下载附件。', 'error'); return; }
+  APP.showMsg(msg, '正在获取下载地址…', 'info');
+  // 文件路径放在受 RLS 保护的 attachment_files 表：
+  // 待审核附件仅上传者/求助发布者/管理员可读路径；审核通过后登录用户可读
+  APP.cloud.database.from('attachment_files').select('file_path').eq('attachment_id', attId).maybeSingle()
+    .then(function (r) {
+      if (r.error) throw new Error('下载权限校验失败：' + r.error.message);
+      if (!r.data) throw new Error('你没有权限下载该附件（仅审核通过的附件可公开下载，待审核附件仅求助发布者可下载检查）。');
+      APP.showMsg(msg, '正在下载文件…', 'info');
+      return APP.downloadFile(r.data.file_path, fileName);
+    })
+    .then(function () {
+      APP.showMsg(msg, '下载完成。', 'success');
+    })
+    .catch(function (err) { APP.showMsg(msg, err.message, 'error'); });
+}
+
+// 审核：求助人走服务端原子函数 review_attachment
+// approve = 附件通过 + 求助完成 + 支付 5 积分悬赏（同一事务）
+// reject  = 附件转「求助人初审不通过」+ 求助进入待管理员复核（不退款、不发奖）
+function reviewAttachment(attId, action) {
+  var note = (document.getElementById('note-' + attId).value || '').trim();
+  if (action === 'reject' && !note) {
+    APP.showMsg(msg, '审核不通过时必须填写审核意见，说明文件哪里不符合求助要求。', 'error');
+    return;
+  }
+  var bountyTip = (req && req.bounty_status === 'locked' && req.bounty_points)
+    ? '\n\n审核通过后，预留的 ' + req.bounty_points + ' 积分悬赏将支付给该附件上传者，求助标记为「已完成」。'
+    : '';
+  if (action === 'approve' && !confirm('审核通过后该求助将标记为「已完成」，其他待审核附件将标记为「未采纳」。' + bountyTip + '\n\n确定继续？')) return;
+  if (action === 'reject' && !confirm('你认为该文件不符合求助要求，将提交管理员复核。复核期间，悬赏积分暂不支付或退还，且不能取消求助。\n\n确定继续？')) return;
+
+  APP.showMsg(msg, '正在提交审核…', 'info');
+  APP.requesterReview(attId, action, note)
+    .then(function (d) {
+      var txt = action === 'approve'
+        ? (d.bounty_paid
+          ? ('审核通过，求助已完成，已向应助人支付 ' + d.bounty_points + ' 积分悬赏。')
+          : '审核通过，求助已完成（该求助无预留悬赏，不发放积分）。')
+        : '你认为该文件不符合求助要求，已提交管理员复核。复核期间，悬赏积分暂不支付或退还。';
+      APP.showMsg(msg, txt, 'success');
+      setTimeout(function () { location.reload(); }, 900);
+    })
+    .catch(function (err) {
+      APP.showMsg(msg, '审核失败：' + (err.message || '未知错误'), 'error');
+    });
+}
+
+// 管理员最终复核：conform = 支付悬赏并完成；nonconform = 退款 + 违规计数（满 3 次封禁 3 天）
+function adminReviewAttachment(attId, resolution) {
+  var note = (document.getElementById('note-' + attId).value || '').trim();
+  if (!note) {
+    APP.showMsg(msg, '管理员必须填写最终审核意见。', 'error');
+    return;
+  }
+  var tip = resolution === 'conform'
+    ? '将判定「文件符合要求」：求助标记为已完成，并支付 5 积分悬赏给应助人。'
+    : '将判定「文件不符合要求」：求助关闭、5 积分悬赏退还求助人、应助人记录一次违规（累计 3 次封禁 3 天）。';
+  if (!confirm(tip + '\n\n确定继续？')) return;
+
+  APP.showMsg(msg, '正在提交管理员复核…', 'info');
+  APP.adminReview(attId, resolution, note)
+    .then(function (d) {
+      var txt = resolution === 'conform'
+        ? ('管理员复核通过，求助已完成，悬赏 ' + (d.bounty_points || 0) + ' 积分已支付。')
+        : ('管理员判定文件不符合要求：求助已关闭，已退还 ' + (d.refund_points || 0) + ' 积分；该应助人累计违规 ' + (d.violation_count || 0) + ' 次' + (d.banned ? '，已封禁 3 天。' : '。'));
+      APP.showMsg(msg, txt, 'success');
+      setTimeout(function () { location.reload(); }, 1000);
+    })
+    .catch(function (err) {
+      APP.showMsg(msg, '复核失败：' + (err.message || '未知错误'), 'error');
+    });
+}
+
+// 上传应助文件
+document.getElementById('upload-btn').addEventListener('click', function () {
+  if (!session) { APP.showMsg(msg, '请先登录。', 'error'); return; }
+  if (!req || ['completed', 'closed', 'invalid', 'pending_requester_review', 'pending_admin_review'].indexOf(req.status) >= 0) {
+    APP.showMsg(msg, '该求助当前不接受新的应助文件。', 'error'); return;
+  }
+  var fileEl = document.getElementById('file');
+  var file = fileEl.files && fileEl.files[0];
+  if (!file) { APP.showMsg(msg, '请选择要上传的 PDF 文件。', 'error'); return; }
+  var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (!isPdf) { APP.showMsg(msg, '仅支持 PDF 格式文件。', 'error'); return; }
+  if (file.size > 20 * 1024 * 1024) { APP.showMsg(msg, '文件超过 20MB 限制。', 'error'); return; }
+  if (!document.getElementById('att_confirm').checked) {
+    APP.showMsg(msg, '请先勾选「上传即表示你确认有权分享该文件」声明。', 'error'); return;
+  }
+
+  var btn = document.getElementById('upload-btn');
+  btn.disabled = true;
+  APP.showMsg(msg, '正在上传到云存储…', 'info');
+
+  var safeName = file.name.replace(/[^\w.\-一-龥]+/g, '_').slice(-80);
+  var path = 'shared/' + session.user.id + '/attachments/' + APP.uuid() + '.pdf';
+
+  APP.uploadFile(file, path)
+    .then(function () {
+      APP.showMsg(msg, '文件已上传，正在登记并锁定求助…', 'info');
+      // 服务端原子操作：校验登录/封禁/求助状态/是否已有待审附件 → 建附件记录 + 求助转待审核
+      return APP.uploadAttachment({
+        request_id: id,
+        file_name: safeName,
+        file_path: path,
+        size_bytes: file.size,
+        owner_name: APP.displayName(session, profile),
+        oa_source_url: document.getElementById('att_oa').value.trim() || null,
+        license_type: document.getElementById('att_license').value.trim() || null,
+        license_note: document.getElementById('att_note').value.trim() || null
+      });
+    })
+    .then(function (d) {
+      APP.showMsg(msg, '上传成功（附件 #' + (d.attachment_id || '') + '）：附件为「待审核」，该求助已锁定为「待求助人审核」，其他用户暂不能上传。', 'success');
+      // 邮件已随数据库事务写入发件箱（dedupe_key 保证同一附件只入队一次）；
+      // 这里触发服务端立即投递一轮，避免托管环境空闲挂起导致定时器不执行。
+      // 投递失败不影响已成功的上传，界面上也不承诺「邮件已发送」。
+      try {
+        // 投递接口只对已登录用户开放，因此带上登录令牌；令牌缺失时服务端会拒绝，
+        // 这里静默忽略——邮件只是辅助提醒，站内通知已在数据库事务中生成。
+        var pumpHeaders = { 'Content-Type': 'application/json' };
+        // 平台会给 /api/* 注入自己的 Authorization（访客会话）并覆盖登录令牌，
+        // 所以登录令牌走自定义头 x-wb-user-token（服务端优先读它）。
+        if (session && session.accessToken) {
+          pumpHeaders['x-wb-user-token'] = session.accessToken;
+          pumpHeaders.Authorization = 'Bearer ' + session.accessToken;
+        }
+        fetch('/api/email/pump', { method: 'POST', headers: pumpHeaders, body: '{}' })
+          .catch(function () { /* 忽略：邮件只是辅助提醒，站内通知已生成 */ });
+      } catch (e) { /* 忽略 */ }
+      fileEl.value = '';
+      document.getElementById('att_confirm').checked = false;
+      loadAttachments();
+      // 刷新求助状态显示
+      return APP.cloud.database.from('help_requests').select('*').eq('id', id).maybeSingle()
+        .then(function (r) { if (r.data) { req = r.data; renderDetail(); } });
+    })
+    .catch(function (err) {
+      APP.showMsg(msg, '上传失败：' + (err.message || '未知错误'), 'error');
+    })
+    .finally(function () { btn.disabled = false; });
+});
+</script>
+</body>
+</html>

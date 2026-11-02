@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>邮件服务配置 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="msg" id="msg"></div>
+
+  <div class="card" id="denied">
+    <h2>邮件服务配置</h2>
+    <div id="denied-body"><p class="muted">正在校验权限…</p></div>
+  </div>
+
+  <div id="admin-area" class="hidden">
+    <div class="msg warn" style="display:block;margin-bottom:14px" id="pause-banner">
+      <b>邮件提醒暂未启用。</b>
+      邮件发送功能已由管理员暂停：不会连接任何 SMTP 服务器，也不会发送或重试邮件；
+      应助/审核后求助人仍会收到<b>站内通知</b>（含求助编号与详情页链接），不受影响。
+      已入队未发送的邮件会保留在队列中，恢复启用后统一投递。
+    </div>
+    <div class="card">
+      <h2>邮件服务配置</h2>
+      <p class="muted">
+        在这里填写 SMTP 发信参数。<b>授权码只会通过 HTTPS 提交到服务端并加密存储在云端凭据库中</b>，
+        不会写入前端代码、静态文件、普通日志或公开部署包，保存后页面也不会回显明文。
+        保存时会立即真实连接一次 SMTP 服务器并完成身份认证，结果显示在下方。
+        <b>当前处于暂停状态，保存与连接测试暂时关闭。</b>
+      </p>
+      <div id="cur-status" style="margin-top:14px"><p class="muted">读取中…</p></div>
+    </div>
+
+    <div class="card">
+      <h2>SMTP 参数</h2>
+      <div class="form-grid">
+        <div>
+          <label for="smtp_host">SMTP 主机</label>
+          <input type="text" id="smtp_host" placeholder="例如 smtp.163.com">
+        </div>
+        <div>
+          <label for="smtp_port">端口与加密</label>
+          <select id="smtp_port">
+            <option value="465">465（SSL/TLS 隐式加密，推荐）</option>
+            <option value="587">587（STARTTLS）</option>
+            <option value="994">994（SSL/TLS）</option>
+            <option value="25">25（不加密，多数服务商已禁用）</option>
+          </select>
+        </div>
+        <div>
+          <label for="smtp_user">邮箱账号</label>
+          <input type="email" id="smtp_user" placeholder="例如 yourname@163.com" autocomplete="username">
+        </div>
+        <div>
+          <label for="smtp_pass">SMTP 授权码</label>
+          <input type="password" id="smtp_pass" placeholder="留空表示不修改已保存的授权码" autocomplete="new-password">
+        </div>
+        <div>
+          <label for="smtp_from">发件人显示（选填）</label>
+          <input type="text" id="smtp_from" placeholder="留空自动为「科研互助平台 &lt;邮箱账号&gt;」">
+        </div>
+      </div>
+      <p class="muted" style="margin-top:10px">
+        授权码不是邮箱登录密码，需在邮箱服务商的「设置 → 账户 → POP3/SMTP/IMAP」中开启服务后单独生成。
+      </p>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn" id="btn-save">保存并测试连接</button>
+        <button class="btn btn-secondary" id="btn-reload">重新读取</button>
+        <button class="btn btn-secondary" id="btn-who">身份自检</button>
+      </div>
+      <div id="auth-result" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <h2>发送测试邮件</h2>
+      <p class="muted">用于验证邮件能否真实到达收件箱。发出后请同时检查收件箱与垃圾邮件。</p>
+      <div class="form-grid">
+        <div>
+          <label for="test_to">收件邮箱</label>
+          <input type="email" id="test_to" placeholder="用于接收测试邮件的真实邮箱">
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-success" id="btn-test">发送测试邮件</button>
+      </div>
+      <div id="test-result" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <h2>投递队列状态</h2>
+      <div id="queue-status"><p class="muted">读取中…</p></div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-secondary btn-sm" id="btn-pump">立即投递一轮</button>
+        <button class="btn btn-secondary btn-sm" id="btn-diag">检测 SMTP 端口连通性</button>
+      </div>
+      <div id="diag-result" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  // 与服务端 MAIL_PAUSED 开关保持一致：恢复邮件功能时改回 false 并重新发布
+  window.__MAIL_PAUSED__ = true;
+  var session = null;
+
+  // 取登录令牌：优先用页面会话里的 accessToken，缺失时回落到 SDK 的 getAccessToken()，
+  // 避免因会话对象字段差异导致请求没带 Authorization（服务端只会看到匿名）。
+  function ensureToken() {
+    if (session && session.accessToken) return Promise.resolve(session.accessToken);
+    try {
+      return APP.cloud.auth.getAccessToken().then(function (t) {
+        if (t && session) session.accessToken = t;
+        return t || '';
+      }, function () { return ''; });
+    } catch (e) {
+      return Promise.resolve('');
+    }
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    return ensureToken().then(function (tk) {
+      // 托管平台会给 /api/* 注入它自己的 Authorization（分享链接访客会话），会覆盖这里的登录令牌；
+      // 因此登录令牌走自定义头 x-wb-user-token，Authorization 只作为兼容保留。
+      if (tk) { headers['x-wb-user-token'] = tk; headers.Authorization = 'Bearer ' + tk; }
+      return fetch(path, {
+        method: opts.method || 'GET',
+        headers: headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined
+      });
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false, error: '响应解析失败（HTTP ' + r.status + '）', __status: r.status }; })
+        .then(function (j) {
+          if (j && typeof j === 'object' && !j.__status) j.__status = r.status;
+          return j;
+        });
+    });
+  }
+
+  // 服务端错误体可能是字符串，也可能是 { kind, message, reason, detail } 对象；
+  // 统一转成可读文本，避免页面显示 "[object Object]"。
+  function errText(v) {
+    if (v === null || v === undefined) return '未知错误';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'object') {
+      var parts = [];
+      if (v.message) parts.push(String(v.message));
+      if (v.detail) parts.push(String(v.detail));
+      if (v.reason) parts.push('（判定原因：' + String(v.reason) + '）');
+      if (!parts.length && v.kind) parts.push(String(v.kind));
+      if (!parts.length) { try { return JSON.stringify(v); } catch (e) { return String(v); } }
+      return parts.join(' ');
+    }
+    return String(v);
+  }
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function row(k, v, hl) {
+    return '<div class="field-row' + (hl ? ' hl' : '') + '"><span class="k">' + esc(k) + '</span><span class="v">' + v + '</span></div>';
+  }
+
+  function renderStatus(s) {
+    var el = document.getElementById('cur-status');
+    if (!s || s.ok === false) {
+      el.innerHTML = '<p class="muted">' + esc(errText(s && s.error) || '读取失败') + '</p>';
+      return;
+    }
+    var html = '';
+    html += row('配置状态', s.configured
+      ? '<span class="badge st-resolved">已配置</span>'
+      : '<span class="badge st-closed">未配置</span>', true);
+    html += row('SMTP 主机', esc(s.host || '（未填写）') + (s.port ? ':' + esc(s.port) : ''));
+    html += row('加密方式', s.secure ? 'SSL/TLS 隐式加密' : 'STARTTLS');
+    html += row('邮箱账号', esc(s.user || '（未填写）'));
+    html += row('发件人显示', esc(s.from || '（未填写）'));
+    html += row('授权码', s.passSet
+      ? '<span class="badge st-resolved">已保存（长度 ' + esc(s.passLen != null ? s.passLen : '?') + ' 位，不回显明文）</span>'
+      : '<span class="badge st-closed">未保存</span>');
+    el.innerHTML = html;
+
+    if (s.host) document.getElementById('smtp_host').value = s.host;
+    if (s.port) document.getElementById('smtp_port').value = String(s.port);
+    if (s.user) document.getElementById('smtp_user').value = s.user;
+    if (s.from) document.getElementById('smtp_from').value = s.from;
+    document.getElementById('smtp_pass').value = '';
+  }
+
+  function renderQueue(st) {
+    var el = document.getElementById('queue-status');
+    if (!st) { el.innerHTML = '<p class="muted">读取失败</p>'; return; }
+    var w = st.worker || {};
+    var html = '';
+    html += row('SMTP 配置', st.smtpConfigured
+      ? '<span class="badge st-resolved">已配置</span>' + (st.smtpHost ? ' ' + esc(st.smtpHost) : '')
+      : '<span class="badge st-closed">未配置</span>' + (st.smtpReason ? '：' + esc(st.smtpReason) : ''), true);
+    html += row('配置来源', st.smtpSource === 'db' ? '云端凭据库（不落本地文件）' : (st.smtpSource || '—'));
+    html += row('上次投递', esc(w.lastRun || '尚未执行'));
+    html += row('本轮成功 / 失败', esc(String(w.sentThisRun || 0)) + ' / ' + esc(String(w.failedThisRun || 0)));
+    html += row('最近结果', esc(w.lastResult ? JSON.stringify(w.lastResult) : '—'));
+    html += row('最近错误', esc(w.lastError || '无'));
+    el.innerHTML = html;
+  }
+
+  function loadAll() {
+    return Promise.all([
+      api('/api/admin/smtp/status'),
+      api('/api/email/status')
+    ]).then(function (rs) {
+      renderStatus(rs[0]);
+      renderQueue(rs[1]);
+    });
+  }
+
+  APP.initPage('admin-email').then(function (ctx) {
+    session = ctx.session;
+    if (!ctx.session) {
+      document.getElementById('denied-body').innerHTML =
+        '<p>请先登录管理员账号后再配置邮件服务。</p><p><a class="btn" href="login.html?next=admin-email.html">前往登录</a></p>';
+      return;
+    }
+    if (!ctx.isAdmin) {
+      document.getElementById('denied-body').innerHTML =
+        '<p>当前账号不是管理员，无权配置邮件服务。</p><p><a class="btn btn-secondary" href="index.html">返回首页</a></p>';
+      return;
+    }
+    document.getElementById('denied').classList.add('hidden');
+    document.getElementById('admin-area').classList.remove('hidden');
+    loadAll();
+
+    document.getElementById('btn-reload').addEventListener('click', function () { loadAll(); });
+
+    // 身份自检：把服务端对「本次请求是谁」的判定结果直接显示出来，便于定位权限问题
+    document.getElementById('btn-who').addEventListener('click', function () {
+      var el = document.getElementById('auth-result');
+      el.innerHTML = '<p class="muted">正在核对本次请求的身份与权限…</p>';
+      api('/api/whoami').then(function (r) {
+        var ok = r && r.ok === true;
+        el.innerHTML = '<div class="msg ' + (ok ? 'success' : 'error') + '" style="display:block"><b>身份自检</b><br>' +
+          '服务端判定角色：' + esc((r && r.role) || '未知') + '<br>' +
+          '是否携带登录凭据：' + (r && r.hasToken ? '是' : '否') + '（来源：' + esc((r && r.tokenSource) || '—') + '）<br>' +
+          '判定链路：' + esc((r && r.reason) || '—') + '<br>' +
+          '说明：' + esc((r && r.detail) || '—') + '<br>' +
+          'HTTP：' + esc((r && r.__status) || '—') + '</div>';
+      }, function () {
+        el.innerHTML = '<div class="msg error" style="display:block">身份自检请求失败（网络错误）</div>';
+      });
+    });
+
+    document.getElementById('btn-save').addEventListener('click', function () {
+      var btn = this;
+      if (window.__MAIL_PAUSED__) {
+        APP.showMsg('msg', '邮件提醒暂未启用：保存与连接测试已暂停，站内通知不受影响。', 'warn');
+        return;
+      }
+      var btn = this;
+      var port = parseInt(document.getElementById('smtp_port').value, 10);
+      var payload = {
+        host: document.getElementById('smtp_host').value.trim(),
+        port: port,
+        secure: port === 465 || port === 994,
+        user: document.getElementById('smtp_user').value.trim(),
+        pass: document.getElementById('smtp_pass').value,
+        from: document.getElementById('smtp_from').value.trim()
+      };
+      if (!payload.host) { APP.showMsg('msg', '请填写 SMTP 主机', 'error'); return; }
+      btn.disabled = true;
+      btn.textContent = '正在保存并测试连接…';
+      document.getElementById('auth-result').innerHTML = '<p class="muted">正在连接 SMTP 服务器并验证身份…</p>';
+      api('/api/admin/smtp/save', { method: 'POST', body: payload }).then(function (r) {
+        btn.disabled = false;
+        btn.textContent = '保存并测试连接';
+        // 无论成功失败都清空授权码输入框，避免明文停留在页面上
+        document.getElementById('smtp_pass').value = '';
+        var el = document.getElementById('auth-result');
+        if (!r || r.ok === false) {
+          el.innerHTML = '<div class="msg error" style="display:block">保存失败：' + esc(errText(r && r.error)) + '</div>';
+          return;
+        }
+        var a = r.auth || {};
+        if (a.ok && a.authenticated) {
+          el.innerHTML = '<div class="msg success" style="display:block"><b>SMTP 连接与身份认证成功</b><br>' +
+            '服务商响应：' + esc(a.smtpCode) + '（' + esc(a.stage) + '）<br>' +
+            '主机：' + esc(a.host) + ':' + esc(a.port) + '，加密：' + (a.secure ? 'SSL/TLS' : 'STARTTLS') +
+            '，耗时 ' + esc(a.elapsedMs) + ' ms</div>';
+          APP.showMsg('msg', '配置已保存，身份认证通过。', 'success');
+        } else {
+          el.innerHTML = '<div class="msg error" style="display:block"><b>SMTP 认证未通过</b><br>' +
+            '失败阶段：' + esc(a.stage || '未知') + '<br>' +
+            '服务商响应码：' + esc(a.smtpCode == null ? '无' : a.smtpCode) + '<br>' +
+            '原因：' + esc(a.error || '未知错误') + '<br>' +
+            '<span class="muted">常见原因：授权码填错（应为「客户端授权码」而非邮箱登录密码）、未开启 SMTP 服务、端口与加密方式不匹配。</span></div>';
+          APP.showMsg('msg', '配置已保存，但身份认证未通过，请检查授权码与端口。', 'warn');
+        }
+        loadAll();
+      });
+    });
+
+    document.getElementById('btn-test').addEventListener('click', function () {
+      if (window.__MAIL_PAUSED__) { APP.showMsg('msg', '邮件提醒暂未启用：发送测试邮件已暂停。', 'warn'); return; }
+      var btn = this;
+      var to = document.getElementById('test_to').value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) { APP.showMsg('msg', '请填写合法的收件邮箱', 'error'); return; }
+      btn.disabled = true;
+      btn.textContent = '发送中…';
+      document.getElementById('test-result').innerHTML = '<p class="muted">正在通过 SMTP 真实发信…</p>';
+      api('/api/email/test', { method: 'POST', body: { to: to } }).then(function (r) {
+        btn.disabled = false;
+        btn.textContent = '发送测试邮件';
+        var el = document.getElementById('test-result');
+        if (r && r.ok) {
+          el.innerHTML = '<div class="msg info" style="display:block"><b>服务商已接受该邮件</b>（SMTP ' + esc(r.smtpCode) + '，发往 ' + esc(r.to) + '）<br>' +
+            '<span class="muted">这表示服务器已把邮件交给邮件服务商，<b>不等于</b>收件箱一定收到。请现在检查 ' + esc(to) + ' 的收件箱与垃圾邮件。</span></div>';
+        } else {
+          el.innerHTML = '<div class="msg error" style="display:block">发送失败：' + esc(errText(r && r.error)) +
+            (r && r.stage ? '<br>失败阶段：' + esc(r.stage) : '') + '</div>';
+        }
+      });
+    });
+
+    document.getElementById('btn-pump').addEventListener('click', function () {
+      if (window.__MAIL_PAUSED__) { APP.showMsg('msg', '邮件提醒暂未启用：立即投递已暂停。', 'warn'); return; }
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = '投递中…';
+      api('/api/email/pump', { method: 'POST', body: {} }).then(function (r) {
+        btn.disabled = false;
+        btn.textContent = '立即投递一轮';
+        renderQueue(r && r.status);
+        APP.showMsg('msg', r && r.result ? ('投递完成：' + JSON.stringify(r.result)) : '投递已触发', r && r.ok ? 'success' : 'warn');
+      });
+    });
+
+    document.getElementById('btn-diag').addEventListener('click', function () {
+      if (window.__MAIL_PAUSED__) { APP.showMsg('msg', '邮件提醒暂未启用：端口连通性检测已暂停。', 'warn'); return; }
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = '检测中…';
+      api('/api/email/diagnose').then(function (r) {
+        btn.disabled = false;
+        btn.textContent = '检测 SMTP 端口连通性';
+        var el = document.getElementById('diag-result');
+        if (!r || !r.results) { el.innerHTML = '<p class="muted">' + esc(errText(r && r.error) || '检测失败') + '</p>'; return; }
+        var html = '<div class="field-row hl"><span class="k">结果</span><span class="v">以下为托管服务器到各 SMTP 端口的 TCP 连通性</span></div>';
+        r.results.forEach(function (x) {
+          html += row(x.host + ':' + x.port, x.reachable
+            ? '<span class="badge st-resolved">可达（' + esc(x.ms) + ' ms）</span>'
+            : '<span class="badge st-closed">不可达：' + esc(x.error) + '</span>');
+        });
+        el.innerHTML = html;
+      });
+    });
+  }).catch(function (e) {
+    document.getElementById('denied-body').innerHTML = '<p class="muted">页面初始化失败：' + esc(e.message || e) + '</p>';
+  });
+})();
+</script>
+</body>
+</html>

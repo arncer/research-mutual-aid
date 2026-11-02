@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 / 注册 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container" style="max-width:560px">
+  <div class="card">
+    <h2>登录 / 注册</h2>
+    <p class="muted">身份认证由 WorkBuddy 云服务提供：验证码通过短信或邮件真实下发，密码由平台加密存储，本站不保存任何明文密码。</p>
+
+    <div class="tabs">
+      <button id="tab-login" class="active">登录</button>
+      <button id="tab-register">注册</button>
+    </div>
+
+    <!-- ============ 登录 ============ -->
+    <div id="pane-login">
+      <div>
+        <span class="seg" id="seg-mode">
+          <button data-mode="password" class="active">密码登录</button>
+          <button data-mode="otp">验证码登录</button>
+        </span>
+        <span class="seg" id="seg-id">
+          <button data-idtype="phone" class="active">手机号</button>
+          <button data-idtype="email">邮箱</button>
+        </span>
+      </div>
+
+      <label for="login-id" id="login-id-label">手机号</label>
+      <input type="text" id="login-id" placeholder="请输入 11 位手机号" maxlength="60" autocomplete="username">
+
+      <div id="login-pwd-box">
+        <label for="login-pwd">密码（6 位数字）</label>
+        <input type="password" id="login-pwd" maxlength="6" inputmode="numeric" placeholder="请输入 6 位数字密码" autocomplete="current-password">
+      </div>
+
+      <div id="login-otp-box" class="hidden">
+        <label for="login-code">验证码</label>
+        <div class="doi-search">
+          <input type="text" id="login-code" placeholder="6 位验证码" maxlength="6" inputmode="numeric">
+          <button class="btn btn-secondary" id="login-send" type="button" style="margin-top:0">获取验证码</button>
+        </div>
+      </div>
+
+      <button class="btn" id="login-submit" style="margin-top:14px">登录</button>
+      <p class="muted" id="login-hint" style="margin-top:10px"></p>
+    </div>
+
+    <!-- ============ 注册（必须邮箱） ============ -->
+    <div id="pane-register" class="hidden">
+      <div class="msg info" style="display:block;margin-bottom:10px">
+        新账号必须使用<strong>邮箱</strong>注册：邮箱是账号恢复与接收求助审核提醒的主要方式。
+        手机号不再是注册凭证，可在注册成功后于个人中心绑定，用于短信验证码登录。
+      </div>
+
+      <label for="reg-id">邮箱（必填）</label>
+      <input type="email" id="reg-id" placeholder="name@example.com" maxlength="120" autocomplete="username">
+
+      <label for="reg-code">邮箱验证码</label>
+      <div class="doi-search">
+        <input type="text" id="reg-code" placeholder="6 位验证码" maxlength="6" inputmode="numeric">
+        <button class="btn btn-secondary" id="reg-send" type="button" style="margin-top:0">获取验证码</button>
+      </div>
+
+      <label for="reg-pwd">设置登录密码（6 位数字）</label>
+      <input type="password" id="reg-pwd" maxlength="6" inputmode="numeric" placeholder="6 位数字，例如 138000" autocomplete="new-password">
+      <label for="reg-pwd2">再次确认密码</label>
+      <input type="password" id="reg-pwd2" maxlength="6" inputmode="numeric" placeholder="再次输入相同密码" autocomplete="new-password">
+
+      <div class="msg warn" style="display:block;margin-top:10px">6 位数字密码安全性有限，请勿与其他网站使用相同密码。密码由平台加密存储，本站不保存明文；登录连续失败会被平台限制。</div>
+
+      <div class="msg info" style="display:block;margin-top:12px">
+        <strong>绑定手机号（选填）</strong>：绑定后可以使用短信验证码登录同一个账号。
+        手机号为选填项，未绑定手机号不影响使用邮箱登录；注册奖励不受影响，也不会因为绑定手机号重复发放。
+      </div>
+
+      <label for="reg-phone">手机号（选填）</label>
+      <input type="tel" id="reg-phone" maxlength="11" inputmode="numeric" placeholder="11 位手机号，不填可跳过" autocomplete="tel">
+
+      <label for="reg-phone-code">短信验证码（绑定手机号时必填）</label>
+      <div class="doi-search">
+        <input type="text" id="reg-phone-code" maxlength="6" inputmode="numeric" placeholder="6 位验证码">
+        <button class="btn btn-secondary" id="reg-phone-send" type="button" style="margin-top:0">获取短信验证码</button>
+      </div>
+      <p class="muted" id="reg-phone-tip">只有通过短信验证码验证，才会在注册时绑定该手机号。</p>
+
+      <button class="btn" id="reg-submit" style="margin-top:14px">完成注册并登录</button>
+      <p class="muted" id="reg-hint" style="margin-top:10px"></p>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="card hidden" id="setpwd-card">
+    <h2>设置登录密码</h2>
+    <div id="setpwd-body"></div>
+  </div>
+
+  <div class="card hidden" id="bindemail-card">
+    <h2>绑定邮箱</h2>
+    <div id="bindemail-body"></div>
+  </div>
+
+  <div class="footer">科研互助平台 · 真实身份认证由云服务提供</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var msg = document.getElementById('msg');
+var nextUrl = APP.qs('next') || 'profile.html';
+
+// 已登录则直接跳转
+APP.getSession().then(function (s) {
+  if (s) location.href = nextUrl;
+  else APP.initPage('');
+});
+
+// ---------- 通用：标签切换 ----------
+function bindSeg(id, attr, onChange) {
+  var box = document.getElementById(id);
+  if (!box) return;
+  Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(box.querySelectorAll('button'), function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      onChange(b.getAttribute(attr));
+    });
+  });
+}
+function segValue(id, attr) {
+  var b = document.querySelector('#' + id + ' button.active');
+  return b ? b.getAttribute(attr) : null;
+}
+function startCountdown(btn, label) {
+  var n = 60;
+  btn.disabled = true;
+  var t = setInterval(function () {
+    btn.textContent = n + ' 秒后重发';
+    if (--n < 0) { clearInterval(t); btn.disabled = false; btn.textContent = label || '获取验证码'; }
+  }, 1000);
+}
+
+// ---------- 顶部：登录 / 注册 ----------
+var tabLogin = document.getElementById('tab-login');
+var tabReg = document.getElementById('tab-register');
+tabLogin.addEventListener('click', function () {
+  tabLogin.classList.add('active'); tabReg.classList.remove('active');
+  document.getElementById('pane-login').classList.remove('hidden');
+  document.getElementById('pane-register').classList.add('hidden');
+  APP.showMsg(msg, '', 'info');
+});
+tabReg.addEventListener('click', function () {
+  tabReg.classList.add('active'); tabLogin.classList.remove('active');
+  document.getElementById('pane-register').classList.remove('hidden');
+  document.getElementById('pane-login').classList.add('hidden');
+  APP.showMsg(msg, '', 'info');
+});
+
+// ---------- 登录 ----------
+var loginMode = 'password';
+var loginIdType = 'phone';
+
+function syncLoginUI() {
+  var isPhone = loginIdType === 'phone';
+  document.getElementById('login-id-label').textContent = isPhone ? '手机号' : '邮箱';
+  document.getElementById('login-id').placeholder = isPhone ? '请输入 11 位手机号' : 'name@example.com';
+  document.getElementById('login-id').value = '';
+  document.getElementById('login-pwd-box').classList.toggle('hidden', loginMode !== 'password');
+  document.getElementById('login-otp-box').classList.toggle('hidden', loginMode !== 'otp');
+  document.getElementById('login-submit').textContent = loginMode === 'password' ? '密码登录' : '验证码登录';
+  document.getElementById('login-hint').textContent = loginMode === 'password'
+    ? '密码登录：使用注册时设置的 6 位数字密码。邮箱账号请输入邮箱；已绑定手机号的账号也可以输入手机号（同一账号）。未设置密码请用「验证码登录」。'
+    : '验证码登录：已注册的邮箱或已绑定手机号的账号可用，验证码由平台真实下发，不会自动创建新账号（新账号请用「注册」）。手机号仅支持短信验证码登录。';
+}
+
+bindSeg('seg-mode', 'data-mode', function (v) { loginMode = v; syncLoginUI(); });
+bindSeg('seg-id', 'data-idtype', function (v) { loginIdType = v; syncLoginUI(); });
+syncLoginUI();
+
+function validIdentifier(v) {
+  if (loginIdType === 'phone') return /^1\d{10}$/.test(v);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+var pendingLoginOtp = null;
+
+document.getElementById('login-send').addEventListener('click', function () {
+  var idVal = document.getElementById('login-id').value.trim();
+  if (!validIdentifier(idVal)) {
+    APP.showMsg(msg, loginIdType === 'phone' ? '请输入正确的 11 位手机号' : '请输入正确的邮箱地址', 'error');
+    return;
+  }
+  var btn = this;
+  btn.disabled = true;
+  var payload = loginIdType === 'phone' ? { phone: idVal } : { email: idVal };
+  APP.cloud.auth.sendOtp(payload).then(function (r) {
+    if (r.error) {
+      APP.showMsg(msg, '发送失败：' + (r.error.message || '未知错误'), 'error');
+      btn.disabled = false;
+      return;
+    }
+    pendingLoginOtp = {
+      type: loginIdType, value: idVal,
+      verificationId: r.data.verificationId, isExistingUser: r.data.isExistingUser
+    };
+    if (pendingLoginOtp.isExistingUser === true) {
+      APP.showMsg(msg, loginIdType === 'phone' ? '验证码已发送，请查收短信。' : '验证码已发送，请查收邮件。', 'success');
+    } else if (loginIdType === 'email') {
+      // 平台侧没有该邮箱的账号：邮箱验证码是「登录凭证」，不会自动建号（新账号请走注册，避免产生无密码的重复账号）
+      APP.showMsg(msg, '验证码已发送。注意：该邮箱目前没有登录账号，请检查邮箱是否输入有误（多/少一位字符很常见）；如果确实还没注册，请切换到「注册」用邮箱创建账号。', 'error');
+    } else {
+      APP.showMsg(msg, '验证码已发送。注意：该手机号还没有账号，新账号请先到「注册」用邮箱创建，登录后再在个人中心绑定手机号。', 'error');
+    }
+    startCountdown(btn);
+  }, function () {
+    btn.disabled = false;
+    APP.showMsg(msg, '验证码发送请求失败，请检查网络后重试。', 'error');
+  });
+});
+
+// ---------- 提交登录（密码 / 验证码） ----------
+var loginFailCount = 0;
+var loginCooldownUntil = 0;
+
+function setBusy(btn, busy) { if (btn) btn.disabled = !!busy; }
+
+function submitLogin(btn) {
+  var idVal = document.getElementById('login-id').value.trim();
+  if (!validIdentifier(idVal)) {
+    APP.showMsg(msg, loginIdType === 'phone' ? '请输入正确的 11 位手机号' : '请输入正确的邮箱地址', 'error');
+    return;
+  }
+
+  // --- 密码登录 ---
+  if (loginMode === 'password') {
+    var pwd = document.getElementById('login-pwd').value;
+    if (!/^\d{6}$/.test(pwd)) { APP.showMsg(msg, '请输入 6 位数字密码。', 'error'); return; }
+    var wait = Math.ceil((loginCooldownUntil - Date.now()) / 1000);
+    if (wait > 0) { APP.showMsg(msg, '密码错误次数较多，请 ' + wait + ' 秒后再试。', 'error'); return; }
+
+    setBusy(btn, true);
+    APP.showMsg(msg, '正在登录…', 'info');
+    var cred = loginIdType === 'phone' ? { phone: idVal, password: pwd } : { email: idVal, password: pwd };
+    APP.cloud.auth.signInWithPassword(cred).then(function (r) {
+      setBusy(btn, false);
+      if (r.error) {
+        loginFailCount++;
+        if (loginFailCount >= 3) loginCooldownUntil = Date.now() + Math.min(60, loginFailCount * 5) * 1000;
+        // 不区分「账号不存在」与「密码错误」，避免账号枚举
+        APP.showMsg(msg, '账号或密码不正确。若这个邮箱/手机号尚未设置密码，请改用「验证码登录」；' +
+          (loginIdType === 'email' ? '也请确认邮箱输入无误。' : ''), 'error');
+        return;
+      }
+      loginFailCount = 0;
+      afterLogin(false);
+    }, function () {
+      setBusy(btn, false);
+      APP.showMsg(msg, '登录请求失败，请检查网络后重试。', 'error');
+    });
+    return;
+  }
+
+  // --- 验证码登录 ---
+  var code = document.getElementById('login-code').value.trim();
+  if (!pendingLoginOtp || pendingLoginOtp.value !== idVal || pendingLoginOtp.type !== loginIdType) {
+    APP.showMsg(msg, '请先为当前账号获取验证码。', 'error');
+    return;
+  }
+  if (!/^\d{4,8}$/.test(code)) { APP.showMsg(msg, '请输入收到的验证码。', 'error'); return; }
+  if (pendingLoginOtp.isExistingUser !== true) {
+    APP.showMsg(msg, loginIdType === 'email'
+      ? '该邮箱目前没有登录账号，验证码不能直接登录。请检查邮箱是否输入有误；如果是新账号，请切换到「注册」用邮箱创建；如果你原来用手机号登录，请改用手机号验证码登录，再在个人中心绑定邮箱（原账号、积分和求助记录都会保留）。'
+      : '该手机号目前没有登录账号。请先用邮箱注册/登录，再在个人中心绑定手机号；原有账号不会被替换。', 'error');
+    return;
+  }
+
+  setBusy(btn, true);
+  APP.showMsg(msg, '正在验证…', 'info');
+  var payload = { verificationId: pendingLoginOtp.verificationId, isExistingUser: true, token: code };
+  if (loginIdType === 'phone') payload.phone = idVal; else payload.email = idVal;
+  APP.cloud.auth.verifyOtp(payload).then(function (r) {
+    setBusy(btn, false);
+    if (r.error) {
+      APP.showMsg(msg, '验证失败：' + (r.error.message || '验证码错误或已过期'), 'error');
+      return;
+    }
+    pendingLoginOtp = null;
+    afterLogin(false);
+  }, function () {
+    setBusy(btn, false);
+    APP.showMsg(msg, '验证请求失败，请检查网络后重试。', 'error');
+  });
+}
+
+document.getElementById('login-submit').addEventListener('click', function () { submitLogin(this); });
+
+// 回车直接提交，避免只点按钮才生效
+['login-id', 'login-pwd', 'login-code'].forEach(function (id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); submitLogin(document.getElementById('login-submit')); }
+  });
+});
+
+// 登录成功后的收尾：幂等初始化积分账户（注册奖励只发一次），同步邮箱，再按需提示
+function afterLogin(isNewUser) {
+  APP.showMsg(msg, '登录成功，正在初始化积分账户…', 'success');
+  return APP.ensureMyPoints().catch(function () { return {}; }).then(function (r) {
+    if (r && r.granted) {
+      APP.showMsg(msg, '注册奖励已到账：+' + r.granted_points + ' 积分，正在跳转…', 'success');
+    } else {
+      APP.showMsg(msg, '登录成功，正在跳转…', 'success');
+    }
+    // 平台会话中已验证的邮箱同步到本站资料（邮箱取自平台签发的会话声明，
+    // 不接受前端任意传值）；注册奖励由此不受影响，仍由服务端幂等函数控制。
+    return APP.syncSessionEmail().catch(function () { return null; });
+  }).then(function () {
+    return APP.getSession().then(function (s) { return APP.getMyProfile(s); });
+  }).then(function (p) {
+    var needEmail = !(p && p.email_verified === true);
+    // 每次登录会话最多自动提醒一次，避免反复打扰
+    if (needEmail && !sessionStorage.getItem('emailPromptShown')) {
+      sessionStorage.setItem('emailPromptShown', '1');
+      APP.ensureEmailBindNotice().catch(function () { return null; });
+      showEmailBindPrompt();
+      return;
+    }
+    if (p && p.has_password === false) {
+      showSetPasswordPrompt();
+      return;
+    }
+    setTimeout(function () { location.href = nextUrl; }, 600);
+  });
+}
+
+// ---------- 注册（邮箱 + 邮箱验证码 + 6 位数字密码） ----------
+var pendingRegOtp = null;
+
+document.getElementById('reg-send').addEventListener('click', function () {
+  var idVal = document.getElementById('reg-id').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(idVal)) {
+    APP.showMsg(msg, '请输入正确的邮箱地址', 'error');
+    return;
+  }
+  var btn = this;
+  setBusy(btn, true);
+  APP.cloud.auth.sendOtp({ email: idVal }).then(function (r) {
+    if (r.error) {
+      setBusy(btn, false);
+      APP.showMsg(msg, '发送失败：' + (r.error.message || '未知错误'), 'error');
+      return;
+    }
+    pendingRegOtp = {
+      value: idVal,
+      verificationId: r.data.verificationId,
+      isExistingUser: r.data.isExistingUser === true
+    };
+    if (pendingRegOtp.isExistingUser) {
+      setBusy(btn, false);
+      APP.showMsg(msg, '该邮箱已经注册过，请切换到「登录」。忘记密码可用邮箱验证码登录后在个人中心重设，或联系我们协助处理。', 'error');
+      return;
+    }
+    APP.showMsg(msg, '邮箱验证码已发送，请查收邮件（若未收到请检查垃圾邮件）。', 'success');
+    startCountdown(btn, '获取验证码');
+  }, function () {
+    setBusy(btn, false);
+    APP.showMsg(msg, '验证码发送请求失败，请检查网络后重试。', 'error');
+  });
+});
+
+document.getElementById('reg-submit').addEventListener('click', function () {
+  var btn = this;
+  var idVal = document.getElementById('reg-id').value.trim();
+  var code = document.getElementById('reg-code').value.trim();
+  var pwd = document.getElementById('reg-pwd').value;
+  var pwd2 = document.getElementById('reg-pwd2').value;
+  var phone = document.getElementById('reg-phone').value.replace(/[^0-9]/g, '');
+  var phoneCode = document.getElementById('reg-phone-code').value.trim();
+
+  if (!pendingRegOtp || pendingRegOtp.value !== idVal) {
+    APP.showMsg(msg, '请先获取邮箱验证码。', 'error');
+    return;
+  }
+  if (!/^\d{4,8}$/.test(code)) { APP.showMsg(msg, '请输入收到的邮箱验证码。', 'error'); return; }
+  if (!/^\d{6}$/.test(pwd)) { APP.showMsg(msg, '登录密码必须是 6 位数字。', 'error'); return; }
+  if (pwd !== pwd2) { APP.showMsg(msg, '两次输入的密码不一致。', 'error'); return; }
+  // 手机号是选填项：填了就必须要短信验证码，不填则直接跳过
+  var wantPhone = phone.length > 0;
+  if (wantPhone && !/^1\d{10}$/.test(phone)) {
+    APP.showMsg(msg, '手机号格式不正确（应为 11 位），或清空手机号跳过绑定。', 'error');
+    return;
+  }
+  if (wantPhone) {
+    if (!pendingPhoneOtp || pendingPhoneOtp.value !== phone) {
+      APP.showMsg(msg, '请先为要绑定的手机号获取短信验证码，或清空手机号跳过绑定。', 'error');
+      return;
+    }
+    if (!/^\d{4,8}$/.test(phoneCode)) {
+      APP.showMsg(msg, '请输入收到的短信验证码，或清空手机号跳过绑定。', 'error');
+      return;
+    }
+  }
+
+  setBusy(btn, true);
+  APP.showMsg(msg, '正在创建账号…', 'info');
+  APP.cloud.auth.verifyOtp({
+    email: idVal,
+    verificationId: pendingRegOtp.verificationId,
+    isExistingUser: false,
+    token: code,
+    password: pwd
+  }).then(function (r) {
+    if (r.error) {
+      setBusy(btn, false);
+      APP.showMsg(msg, '注册失败：' + (r.error.message || '验证码错误或已过期'), 'error');
+      return;
+    }
+    pendingRegOtp = null;
+    // has_password 仅为界面提示标记（平台侧已加密保存密码，本站不存密码）
+    return APP.markPasswordSet().catch(function () { return null; }).then(function () {
+      if (!wantPhone) {
+        setBusy(btn, false);
+        return afterLogin(true);
+      }
+      // 账号已创建：再用短信验证码把手机号关联到同一个 user_id（服务端校验并写入）
+      APP.showMsg(msg, '账号已创建，正在绑定手机号…', 'info');
+      return APP.linkConfirm('phone', phone, pendingPhoneOtp.verificationId, phoneCode).then(function () {
+        pendingPhoneOtp = null;
+        setBusy(btn, false);
+        APP.showMsg(msg, '账号已创建，手机号绑定成功：同一账号可分别用邮箱和手机号登录。', 'success');
+        return afterLogin(true);
+      }, function (err) {
+        pendingPhoneOtp = null;
+        setBusy(btn, false);
+        // 账号已存在，绝不能因为绑定失败再回滚账号；如实告知并引导到个人中心重新绑定
+        APP.showMsg(msg, '账号已创建成功，但手机号未绑定：' + (err.message || '验证码错误或已过期') +
+          '。请登录后在个人中心「手机号绑定」重新绑定，邮箱登录不受影响。', 'error');
+        return afterLogin(true);
+      });
+    });
+  }, function () {
+    setBusy(btn, false);
+    APP.showMsg(msg, '注册请求失败，请检查网络后重试。', 'error');
+  });
+});
+
+// 注册时可选绑定手机号：验证码由平台真实下发（短信），绑定在校验通过后写身份记录
+var pendingPhoneOtp = null;
+document.getElementById('reg-phone-send').addEventListener('click', function () {
+  var btn = this;
+  var phone = document.getElementById('reg-phone').value.replace(/[^0-9]/g, '');
+  var tip = document.getElementById('reg-phone-tip');
+  if (!/^1\d{10}$/.test(phone)) {
+    tip.textContent = '请输入正确的 11 位手机号；不绑定手机号可留空。';
+    return;
+  }
+  setBusy(btn, true);
+  tip.textContent = '正在请求短信验证码…';
+  APP.linkSend('phone', phone).then(function (r) {
+    if (r && r.alreadyLinked) {
+      setBusy(btn, false);
+      tip.textContent = '该手机号已绑定到当前登录账号，注册时会直接沿用，无需重复绑定。';
+      return;
+    }
+    if (!r || !r.verificationId) {
+      setBusy(btn, false);
+      tip.textContent = '短信验证码下发失败：认证服务未返回有效凭据，请稍后重试。';
+      return;
+    }
+    pendingPhoneOtp = { value: phone, verificationId: r.verificationId };
+    tip.textContent = '短信验证码已发送，请查收（5 分钟内有效，仅可使用一次）。';
+    startCountdown(btn, '获取短信验证码');
+  }, function (err) {
+    setBusy(btn, false);
+    tip.textContent = '发送失败：' + (err.message || '未知错误');
+  });
+});
+
+['reg-id', 'reg-code', 'reg-pwd', 'reg-pwd2'].forEach(function (id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('reg-submit').click(); }
+  });
+});
+
+// ---------- 老用户（手机号注册、未绑定邮箱）：邮箱绑定提醒 ----------
+function showEmailBindPrompt() {
+  var card = document.getElementById('bindemail-card');
+  var body = document.getElementById('bindemail-body');
+  card.classList.remove('hidden');
+  body.innerHTML =
+    '<div class="msg info" style="display:block">绑定邮箱后，可以使用邮箱登录、重置密码，并接收求助审核相关邮件提醒。' +
+    '绑定邮箱<strong>不会影响</strong>现有手机号登录方式，也不会改变用户 ID、积分或历史求助记录。</div>' +
+    '<div class="btn-row">' +
+    '<button class="btn btn-sm" id="be-now">立即绑定邮箱</button>' +
+    '<button class="btn btn-sm btn-secondary" id="be-later">稍后绑定</button>' +
+    '<button class="btn btn-sm btn-secondary" id="be-why">查看原因</button>' +
+    '</div>' +
+    '<div id="be-why-box" class="hidden" style="margin-top:10px"></div>' +
+    '<div id="be-form" class="hidden" style="margin-top:12px;border-top:1px dashed #e5e7eb;padding-top:12px"></div>';
+
+  document.getElementById('be-later').addEventListener('click', function () {
+    location.href = nextUrl;   // 不强制退出登录，正常使用
+  });
+  document.getElementById('be-why').addEventListener('click', function () {
+    var box = document.getElementById('be-why-box');
+    box.classList.toggle('hidden');
+    box.innerHTML =
+      '<p class="muted">① <strong>审核提醒</strong>：有人应助你的求助时，系统会向已验证邮箱发送提醒邮件，' +
+      '比站内通知更容易及时发现。<br>' +
+      '② <strong>账号找回</strong>：邮箱是管理员核实身份、协助找回账号时的联系凭据；' +
+      '平台认证服务目前只对「以邮箱注册」的账号开放邮箱验证码重置密码，' +
+      '手机号账号请继续使用手机号验证码登录（绑定邮箱不会改变登录方式）。<br>' +
+      '③ <strong>安全</strong>：邮箱必须通过验证码验证所有权后才能绑定，且一个邮箱只能绑定一个账号。<br>' +
+      '④ 绑定不会改变用户 ID、积分、历史求助与权限；也可以随时稍后再绑。</p>';
+  });
+  document.getElementById('be-now').addEventListener('click', function () {
+    var form = document.getElementById('be-form');
+    form.classList.remove('hidden');
+    form.innerHTML =
+      '<label for="be-email">要绑定的邮箱</label><input type="email" id="be-email" placeholder="name@example.com">' +
+      '<button class="btn btn-sm" id="be-send" style="margin-top:8px">发送验证码</button>' +
+      '<div id="be-step2" class="hidden" style="margin-top:12px">' +
+      '<label for="be-code">邮箱验证码（5 分钟内有效）</label>' +
+      '<input type="text" id="be-code" maxlength="6" inputmode="numeric" placeholder="6 位验证码">' +
+      '<div class="btn-row"><button class="btn btn-sm" id="be-save">完成绑定</button></div></div>' +
+      '<p class="muted" id="be-tip" style="margin-top:8px"></p>';
+    APP.emailBindForm({
+      email: 'be-email', code: 'be-code', send: 'be-send',
+      save: 'be-save', step2: 'be-step2', tip: 'be-tip'
+    }, {
+      onDone: function () {
+        APP.showMsg(msg, '邮箱已绑定并验证，正在进入平台…', 'success');
+        setTimeout(function () { location.href = nextUrl; }, 900);
+      }
+    });
+  });
+}
+
+
+// ---------- 已有账号：设置密码（邮箱重置流程） ----------
+function showSetPasswordPrompt() {
+  var card = document.getElementById('setpwd-card');
+  var body = document.getElementById('setpwd-body');
+  card.classList.remove('hidden');
+  body.innerHTML =
+    '<div class="msg info" style="display:block">你当前的账号尚未设置密码，是否现在设置？设置后可使用密码登录，也可以继续使用验证码登录。</div>' +
+    '<div class="btn-row"><button class="btn btn-sm" id="setpwd-now">现在设置</button>' +
+    '<button class="btn btn-sm btn-secondary" id="setpwd-later">稍后设置</button></div>';
+  document.getElementById('setpwd-later').addEventListener('click', function () {
+    location.href = nextUrl;
+  });
+  document.getElementById('setpwd-now').addEventListener('click', function () {
+    body.innerHTML =
+      '<div class="msg warn" style="display:block">设置/重置密码需要通过邮箱验证码验证身份。' +
+      'WorkBuddy 托管认证服务目前<strong>只开放邮箱通道</strong>用于设置密码，短信通道仅支持验证码登录。' +
+      '如果你只有手机号，可以继续用验证码登录，功能不受影响。</div>' +
+      '<label for="sp-email">账号绑定的邮箱</label><input type="email" id="sp-email" placeholder="name@example.com">' +
+      '<button class="btn btn-sm" id="sp-send" style="margin-top:8px">发送验证码</button>' +
+      '<div id="sp-step2" class="hidden" style="margin-top:12px">' +
+      '<label for="sp-code">邮箱验证码</label><input type="text" id="sp-code" maxlength="6" inputmode="numeric" placeholder="6 位验证码">' +
+      '<label for="sp-pwd">新密码（6 位数字）</label><input type="password" id="sp-pwd" maxlength="6" inputmode="numeric">' +
+      '<label for="sp-pwd2">确认新密码</label><input type="password" id="sp-pwd2" maxlength="6" inputmode="numeric">' +
+      '<div class="btn-row"><button class="btn btn-sm" id="sp-save">保存密码</button></div></div>' +
+      '<p class="muted" id="sp-tip" style="margin-top:10px"></p>';
+
+    var started = null;
+    document.getElementById('sp-send').addEventListener('click', function () {
+      var email = document.getElementById('sp-email').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        document.getElementById('sp-tip').textContent = '请输入正确的邮箱地址。';
+        return;
+      }
+      var b = this; b.disabled = true;
+      APP.cloud.auth.resetPasswordForEmail(email).then(function (r) {
+        if (r.error) {
+          b.disabled = false;
+          document.getElementById('sp-tip').textContent = '发送失败：' + (r.error.message || '未知错误');
+          return;
+        }
+        started = r.data;
+        document.getElementById('sp-step2').classList.remove('hidden');
+        document.getElementById('sp-tip').textContent = '验证码已发送，请查收邮件。';
+        startCountdown(b);
+      });
+    });
+
+    document.getElementById('sp-save').addEventListener('click', function () {
+      var code = document.getElementById('sp-code').value.trim();
+      var p1 = document.getElementById('sp-pwd').value;
+      var p2 = document.getElementById('sp-pwd2').value;
+      var tip = document.getElementById('sp-tip');
+      if (!started) { tip.textContent = '请先发送邮箱验证码。'; return; }
+      if (!code) { tip.textContent = '请输入验证码。'; return; }
+      if (!/^\d{6}$/.test(p1)) { tip.textContent = '密码必须是 6 位数字。'; return; }
+      if (p1 !== p2) { tip.textContent = '两次输入的密码不一致。'; return; }
+      var b = this; b.disabled = true;
+      started.updateUser({ nonce: code, password: p1 }).then(function (res) {
+        b.disabled = false;
+        if (res.error) { tip.textContent = '设置失败：' + (res.error.message || '验证码错误或已过期'); return; }
+        return APP.markPasswordSet().then(function () {
+          APP.showMsg(msg, '密码设置成功，下次可使用密码登录。', 'success');
+          setTimeout(function () { location.href = nextUrl; }, 800);
+        });
+      });
+    });
+  });
+}
+</script>
+</body>
+</html>

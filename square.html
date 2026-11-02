@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>科研互助广场 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="card">
+    <h2>科研互助广场</h2>
+    <p class="muted">这里只展示「求助中」且尚未收到应助文件的求助。已进入审核、已完成、已关闭或已失效的求助不再公开展示（求助人可在个人中心查看自己的全部记录）。</p>
+    <div class="doi-search">
+      <input type="text" id="kw" placeholder="搜索关键词：论文标题、作者、期刊、DOI 或求助说明">
+      <button class="btn" id="search-btn" style="margin-top:0">搜索</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="list"><p class="muted">加载中…</p></div>
+  <div class="btn-row" style="justify-content:center;margin-top:8px">
+    <button class="btn btn-secondary" id="prev" disabled>上一页</button>
+    <span class="muted" id="page-info" style="align-self:center"></span>
+    <button class="btn btn-secondary" id="next" disabled>下一页</button>
+  </div>
+
+  <div class="footer">科研互助平台 · 互助广场</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+APP.initPage('square');
+
+var PAGE_SIZE = 10;
+var page = 1;
+
+function load() {
+  var kw = document.getElementById('kw').value.trim();
+  var msg = document.getElementById('msg');
+  APP.showMsg(msg, '', 'info');
+
+  // 服务端过滤：square_list 只返回「求助中且无待审核附件」的记录，
+  // 分页与总数使用同一套条件，前端无法通过改参数绕过。
+  APP.squareList(kw, PAGE_SIZE, (page - 1) * PAGE_SIZE).then(function (d) {
+    var box = document.getElementById('list');
+    var rows = (d && d.rows) || [];
+    var total = (d && d.total) || 0;
+    var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    document.getElementById('page-info').textContent = '第 ' + page + ' / ' + pages + ' 页，共 ' + total + ' 条';
+    document.getElementById('prev').disabled = page <= 1;
+    document.getElementById('next').disabled = page >= pages;
+
+    if (!rows.length) {
+      box.innerHTML = '<div class="card"><p class="muted">当前没有符合条件的待应助求助。已进入审核、已完成或已关闭的求助不会在这里展示。</p></div>';
+      return;
+    }
+    box.innerHTML = rows.map(function (raw) {
+      var it = APP.mergePaperMeta(raw);   // 兼容历史记录：快照缺失时用关联论文补齐
+      var cite = APP.paperCiteLine(it);
+      var html = '<div class="req-item"><h3><a href="request.html?id=' + it.id + '">#' + it.id + ' ' +
+        APP.escapeHtml(it.title || it.doi || '（未填写标题）') + '</a></h3>' +
+        '<div>' + APP.statusBadge(it.status) + ' ' + APP.bountyBadge(it) + '</div>';
+      // 期刊名称、出版年份、卷期页码重点突出，便于判断院校是否订阅
+      html += '<div class="cite-line">' + (cite ? cite : '<em class="muted">期刊 / 年份 / 卷期页码：暂未提供</em>') + '</div>';
+      if (it.authors) {
+        html += '<div class="desc">作者：' + APP.escapeHtml(it.authors.length > 120 ? it.authors.slice(0, 120) + '…' : it.authors) + '</div>';
+      }
+      if (it.description) {
+        html += '<div class="desc">' + APP.escapeHtml(it.description.slice(0, 120)) + (it.description.length > 120 ? '…' : '') + '</div>';
+      }
+      html += '<div class="meta">' +
+        '<span>DOI：' + (it.doi ? APP.escapeHtml(it.doi) : '<em class="muted">暂未提供</em>') + '</span>' +
+        '<span>发布者：' + APP.escapeHtml(it.owner_name || '未设置昵称') + '</span>' +
+        '<span>' + APP.fmtTime(it.created_at) + '</span>' +
+        '<span><a href="request.html?id=' + it.id + '">查看详情 →</a></span>' +
+        '</div></div>';
+      return html;
+    }).join('');
+  }).catch(function (err) {
+    document.getElementById('list').innerHTML = '';
+    APP.showMsg(msg, '加载失败：' + (err.message || '未知错误'), 'error');
+  });
+}
+
+document.getElementById('search-btn').addEventListener('click', function () { page = 1; load(); });
+document.getElementById('kw').addEventListener('keydown', function (e) { if (e.key === 'Enter') { page = 1; load(); } });
+document.getElementById('prev').addEventListener('click', function () { if (page > 1) { page--; load(); } });
+document.getElementById('next').addEventListener('click', function () { page++; load(); });
+load();
+</script>
+</body>
+</html>

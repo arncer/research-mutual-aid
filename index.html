@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>科研互助平台 - 首页</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="hero">
+    <h1>科研互助平台</h1>
+    <p>面向高校学生、研究生和科研人员的论文互助社区：通过 DOI 查询论文元数据，发布论文获取求助，查找已有求助，开展合规的科研互助。</p>
+    <div class="doi-search">
+      <input type="text" id="doi-input" placeholder="输入 DOI 或 DOI 链接，如 10.1038/nature12373 或 https://doi.org/10.1038/nature12373">
+      <button class="btn btn-secondary" id="doi-go" style="margin-top:0">查询论文</button>
+    </div>
+    <div class="msg error" id="doi-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>平台数据</h2>
+    <div class="stat-row" id="stats">
+      <div class="stat"><div class="num" id="stat-papers">…</div><div class="lbl">收录论文</div></div>
+      <div class="stat"><div class="num" id="stat-requests">…</div><div class="lbl">求助总数</div></div>
+      <div class="stat"><div class="num" id="stat-open">…</div><div class="lbl">求助中</div></div>
+      <div class="stat"><div class="num" id="stat-resolved">…</div><div class="lbl">已解决</div></div>
+    </div>
+    <div class="msg" id="stat-msg"></div>
+    <p class="muted" style="font-size:12px;margin-top:6px">统计口径：收录论文按 DOI 去重（无 DOI 的按标题 + 作者识别）；求助总数含全部状态；「求助中」含求助中 / 互助中；「已解决」含已完成 / 已解决。</p>
+  </div>
+
+  <div class="grid">
+    <div class="feature"><h3>DOI 论文查询</h3><p>接入 Crossref 真实元数据服务，自动识别 DOI 链接格式，查询结果入库避免重复记录。</p></div>
+    <div class="feature"><h3>历史求助查重</h3><p>发布前自动检索相同 DOI 的历史求助，提醒并引导查看，避免无意重复发布。</p></div>
+    <div class="feature"><h3>合规分享</h3><p>保留开放获取来源与授权说明，附件经求助人审核通过后方可下载。</p></div>
+    <div class="feature"><h3>积分激励</h3><p>注册赠送 50 积分，每日签到 +5；每次求助固定悬赏 5 积分，应助文件审核通过后即支付给应助人。</p></div>
+    <div class="feature"><h3>助人排行榜</h3><p>按北京时间自然日统计今天审核通过的助人悬赏积分，签到与注册赠送不计入排名。</p></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h2>最新求助</h2>
+    <div id="latest"><p class="muted">加载中…</p></div>
+    <div class="btn-row"><a class="btn btn-secondary" href="square.html">进入互助广场</a></div>
+  </div>
+
+  <div class="footer">科研互助平台 · 课程项目 · 数据存储于云数据库，刷新后仍然保留</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+APP.initPage('home');
+
+document.getElementById('doi-go').addEventListener('click', function () {
+  var msg = document.getElementById('doi-msg');
+  var doi = APP.normalizeDoi(document.getElementById('doi-input').value);
+  if (!doi) {
+    APP.showMsg(msg, 'DOI 格式不正确。有效 DOI 形如 10.xxxx/xxxxx，也可以直接粘贴 https://doi.org/ 开头的链接。', 'error');
+    return;
+  }
+  APP.showMsg(msg, '', 'error');
+  location.href = 'paper.html?doi=' + encodeURIComponent(doi);
+});
+document.getElementById('doi-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') document.getElementById('doi-go').click();
+});
+
+// 统计：调用服务端函数 platform_stats 实时查询真实数据
+// （不能依赖 SDK 的 count：浏览器的跨域响应未暴露 Content-Range 头，读到的 count 为 undefined）
+function loadStats() {
+  var statMsg = document.getElementById('stat-msg');
+  function setNum(id, v) { document.getElementById(id).textContent = v; }
+  APP.platformStats().then(function (s) {
+    APP.showMsg(statMsg, '', 'info');
+    setNum('stat-papers', s.papers);
+    setNum('stat-requests', s.requests);
+    setNum('stat-open', s.open);
+    setNum('stat-resolved', s.resolved);
+  }).catch(function (err) {
+    ['stat-papers', 'stat-requests', 'stat-open', 'stat-resolved'].forEach(function (id) { setNum(id, '—'); });
+    APP.showMsg(statMsg, '统计数据加载失败，暂不可用：' + (err.message || '未知错误'), 'error');
+  });
+}
+loadStats();
+
+// 最新求助
+APP.cloud.database.from('help_requests')
+  .select('*,papers(journal,published_year,volume,issue,pages,authors)')
+  .order('created_at', { ascending: false }).limit(6)
+  .then(function (r) {
+    var box = document.getElementById('latest');
+    if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+    if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无求助，成为第一个发布者吧。</p>'; return; }
+    box.innerHTML = r.data.map(function (raw) {
+      var it = APP.mergePaperMeta(raw);
+      var cite = APP.paperCiteLine(it);
+      return '<div class="req-item"><h3><a href="request.html?id=' + it.id + '">' +         APP.escapeHtml(it.title || it.doi || '（未填写标题）') + '</a></h3>' +
+        '<div>' + APP.statusBadge(it.status) + ' ' + APP.bountyBadge(it) + '</div>' +
+        (cite ? '<div class="cite-line">' + cite + '</div>' : '') +
+        '<div class="meta"><span>DOI：' + (it.doi ? APP.escapeHtml(it.doi) : '<em class="muted">暂未提供</em>') + '</span><span>发布者：' + APP.escapeHtml(it.owner_name || '未设置昵称') + '</span><span>' + APP.fmtTime(it.created_at) + '</span></div></div>';
+    }).join('');
+  });
+</script>
+</body>
+</html>

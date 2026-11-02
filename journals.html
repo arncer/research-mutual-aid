@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>期刊数据库 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="card">
+    <h2>期刊数据库</h2>
+    <p class="muted">按刊名、ISSN / eISSN 检索期刊，查看影响因子与 JCR、中科院分区。每条指标都标注<b>指标年份</b>与<b>数据来源</b>，不同年份分别保存，不做跨年推断。</p>
+    <p class="muted" style="font-size:12px;margin-top:6px">
+      数据说明：只展示有明确来源的记录。JCR 与中科院分区属于商业数据库产品，未获得授权的内容不会批量搬运或公开展示；
+      没有已核验记录的期刊会明确显示「暂无已核验数据」，并提供可核实的来源入口。
+    </p>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="form-grid">
+      <div>
+        <label class="muted" style="font-size:12px">关键词（刊名 / 中文名 / ISSN / eISSN）</label>
+        <input type="text" id="f-kw" placeholder="如 Nature、管理科学、0025-1747">
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">学科</label>
+        <select id="f-subject"><option value="">全部学科</option></select>
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">出版商</label>
+        <select id="f-publisher"><option value="">全部出版商</option></select>
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">指标年份</label>
+        <select id="f-year"><option value="">不限年份</option></select>
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">分区体系</label>
+        <select id="f-system">
+          <option value="">JCR + 中科院</option>
+          <option value="JCR">仅 JCR</option>
+          <option value="CAS">仅中科院</option>
+        </select>
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">分区</label>
+        <select id="f-quartile">
+          <option value="">全部分区</option>
+          <option value="Q1">Q1</option>
+          <option value="Q2">Q2</option>
+          <option value="Q3">Q3</option>
+          <option value="Q4">Q4</option>
+        </select>
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">影响因子下限</label>
+        <input type="text" id="f-if-min" placeholder="如 3">
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">影响因子上限</label>
+        <input type="text" id="f-if-max" placeholder="如 10">
+      </div>
+    </div>
+    <div class="checkbox-row" style="margin-top:12px">
+      <input type="checkbox" id="f-demo">
+      <label for="f-demo" class="muted" style="font-size:13px">包含演示数据（仅用于界面测试，非真实指标）</label>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn" id="btn-search">查询</button>
+      <button class="btn btn-secondary" id="btn-reset">重置条件</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="summary" class="muted" style="margin:14px 2px 6px;font-size:13px"></div>
+  <div id="list"><p class="muted">加载中…</p></div>
+
+  <div class="btn-row" style="justify-content:center;margin-top:8px">
+    <button class="btn btn-secondary" id="prev" disabled>上一页</button>
+    <span class="muted" id="page-info" style="align-self:center"></span>
+    <button class="btn btn-secondary" id="next" disabled>下一页</button>
+  </div>
+
+  <div class="footer">科研互助平台 · 期刊数据库（指标按年份与来源独立记录）</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+APP.initPage('journals');
+
+var PAGE_SIZE = 10;
+var page = 1;
+var lastTotal = 0;
+
+function q(id) { return document.getElementById(id); }
+
+// 分区徽标：Q1 最优，颜色从深到浅；未提供时显示「暂无」
+function rankBadge(label, quartile, year) {
+  if (!quartile) return '<span class="badge" style="background:#f3f4f6;color:#6b7280">' + label + ' 暂无</span>';
+  var color = { Q1: '#dc2626', Q2: '#ea580c', Q3: '#ca8a04', Q4: '#6b7280' }[quartile] || '#6b7280';
+  return '<span class="badge" style="background:' + color + '">' + label + ' ' + quartile + '</span>' +
+    (year ? '<span class="muted" style="font-size:12px;margin-left:4px">' + year + '</span>' : '');
+}
+
+function ifBadge(v, year) {
+  if (v === null || v === undefined) {
+    return '<span class="badge" style="background:#f3f4f6;color:#6b7280">影响因子 暂无已核验数据</span>';
+  }
+  return '<span class="badge" style="background:#2563eb">IF ' + Number(v).toFixed(3) + '</span>' +
+    (year ? '<span class="muted" style="font-size:12px;margin-left:4px">' + year + ' 年</span>' : '');
+}
+
+function renderRows(rows) {
+  var box = q('list');
+  if (!rows.length) {
+    box.innerHTML = '<div class="card"><div class="empty-state">' +
+      '<p class="muted">没有符合条件的期刊。可以放宽学科、年份或分区条件后再试。</p></div></div>';
+    return;
+  }
+  box.innerHTML = rows.map(function (j) {
+    var subs = (j.subjects || []).slice(0, 4).map(function (s) {
+      return '<span class="badge" style="background:#eef2ff;color:#4338ca">' + APP.escapeHtml(s) + '</span>';
+    }).join(' ');
+    return '<div class="card" style="margin-bottom:12px">' +
+      '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:240px">' +
+          '<h3 style="margin:0 0 6px"><a href="journal-detail.html?id=' + j.id + '">' + APP.escapeHtml(j.title || '（未命名）') + '</a>' +
+          (j.is_demo ? ' <span class="badge" style="background:#f59e0b">演示数据</span>' : '') + '</h3>' +
+          (j.chinese_name ? '<div class="muted" style="font-size:13px">' + APP.escapeHtml(j.chinese_name) + '</div>' : '') +
+          '<div class="meta" style="margin-top:6px">' +
+            '<span>ISSN：' + (j.issn ? APP.escapeHtml(j.issn) : '<em class="muted">未提供</em>') + '</span>' +
+            '<span>eISSN：' + (j.eissn ? APP.escapeHtml(j.eissn) : '<em class="muted">未提供</em>') + '</span>' +
+            '<span>出版商：' + (j.publisher ? APP.escapeHtml(j.publisher) : '<em class="muted">未提供</em>') + '</span>' +
+          '</div>' +
+          (subs ? '<div style="margin-top:8px">' + subs + '</div>' : '') +
+        '</div>' +
+        '<div style="min-width:220px">' +
+          '<div style="margin-bottom:6px">' + ifBadge(j.if_value, j.if_year) + '</div>' +
+          '<div style="margin-bottom:6px">' + rankBadge('JCR', j.jcr_quartile, j.jcr_year) + '</div>' +
+          '<div>' + rankBadge('中科院', j.cas_quartile, j.cas_year) + '</div>' +
+          '<div style="margin-top:10px"><a href="journal-detail.html?id=' + j.id + '">查看详情与历年数据 →</a></div>' +
+        '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+function load() {
+  var msg = q('msg');
+  APP.showMsg(msg, '', 'info');
+  var params = {
+    kw: q('f-kw').value.trim(),
+    subject: q('f-subject').value,
+    publisher: q('f-publisher').value,
+    year: q('f-year').value,
+    system: q('f-system').value,
+    quartile: q('f-quartile').value,
+    ifMin: q('f-if-min').value.trim(),
+    ifMax: q('f-if-max').value.trim(),
+    includeDemo: q('f-demo').checked,
+    limit: PAGE_SIZE,
+    offset: (page - 1) * PAGE_SIZE
+  };
+  if (params.ifMin !== '' && isNaN(Number(params.ifMin))) { APP.showMsg(msg, '影响因子下限必须是数字。', 'error'); return; }
+  if (params.ifMax !== '' && isNaN(Number(params.ifMax))) { APP.showMsg(msg, '影响因子上限必须是数字。', 'error'); return; }
+
+  APP.journalSearch(params).then(function (d) {
+    var rows = d.rows || [];
+    lastTotal = d.total || 0;
+    var pages = Math.max(1, Math.ceil(lastTotal / PAGE_SIZE));
+    if (page > pages) { page = pages; return load(); }
+    q('summary').textContent = '共 ' + lastTotal + ' 本期刊符合条件' + (q('f-demo').checked ? '（含演示数据）' : '');
+    q('page-info').textContent = '第 ' + page + ' / ' + pages + ' 页';
+    q('prev').disabled = page <= 1;
+    q('next').disabled = page >= pages;
+    renderRows(rows);
+  }).catch(function (err) {
+    q('list').innerHTML = '';
+    q('summary').textContent = '';
+    APP.showMsg(msg, '查询失败：' + (err.message || '未知错误'), 'error');
+  });
+}
+
+function fillOptions() {
+  APP.journalFilterOptions().then(function (o) {
+    var subj = q('f-subject'), pub = q('f-publisher'), yr = q('f-year');
+    (o.subjects || []).forEach(function (s) {
+      var op = document.createElement('option'); op.value = s; op.textContent = s; subj.appendChild(op);
+    });
+    (o.publishers || []).forEach(function (p) {
+      var op = document.createElement('option'); op.value = p; op.textContent = p; pub.appendChild(op);
+    });
+    (o.years || []).forEach(function (y) {
+      var op = document.createElement('option'); op.value = y; op.textContent = y + ' 年'; yr.appendChild(op);
+    });
+  }).catch(function () { /* 选项加载失败不影响基本检索 */ });
+}
+
+// 从 URL 带上初始条件，方便分享「某个学科 / 某一年」的视图
+(function initFromQuery() {
+  var sp = new URLSearchParams(location.search);
+  if (sp.get('kw')) q('f-kw').value = sp.get('kw');
+  if (sp.get('subject')) q('f-subject').value = sp.get('subject');
+  if (sp.get('year')) q('f-year').value = sp.get('year');
+  if (sp.get('quartile')) q('f-quartile').value = sp.get('quartile');
+  if (sp.get('demo') === '1') q('f-demo').checked = true;
+})();
+
+q('btn-search').addEventListener('click', function () { page = 1; load(); });
+q('btn-reset').addEventListener('click', function () {
+  ['f-kw', 'f-if-min', 'f-if-max'].forEach(function (id) { q(id).value = ''; });
+  ['f-subject', 'f-publisher', 'f-year', 'f-system', 'f-quartile'].forEach(function (id) { q(id).value = ''; });
+  q('f-demo').checked = false;
+  page = 1; load();
+});
+q('f-kw').addEventListener('keydown', function (e) { if (e.key === 'Enter') { page = 1; load(); } });
+q('prev').addEventListener('click', function () { if (page > 1) { page--; load(); } });
+q('next').addEventListener('click', function () { page++; load(); });
+
+fillOptions();
+load();
+</script>
+</body>
+</html>

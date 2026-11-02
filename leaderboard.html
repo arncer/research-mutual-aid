@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>助人排行榜 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="card">
+    <h2>每日助人积分排行榜</h2>
+    <p class="muted">只统计<strong>今天</strong>（按北京时间 Asia/Shanghai 自然日划分）通过帮助他人、且已被求助人<strong>审核通过</strong>的悬赏积分。每完成一个有效的 5 积分悬赏求助，助人积分 +5。</p>
+    <div class="msg" id="msg"></div>
+    <div id="board"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card">
+    <h2>我的今日排名</h2>
+    <div id="mine"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card">
+    <h2>统计口径说明</h2>
+    <ul class="rule-list">
+      <li>计入：今天审核通过的应助附件对应的悬赏收入（<code>bounty_reward</code>）。</li>
+      <li>不计入：未审核附件、审核不通过的附件、已取消或关闭的求助、尚未完成的求助。</li>
+      <li>不计入：注册奖励、存量用户初始化奖励、每日签到奖励、悬赏退款。</li>
+      <li>不统计用户当前余额，只统计今天真实发生的成功悬赏交易记录。</li>
+      <li>排序：今日助人积分从高到低；积分相同时按今日成功帮助次数从多到少；仍相同时按用户 ID 升序（稳定且明确）。</li>
+      <li>默认展示前 10 名；未设置昵称的用户显示默认名称，不公开完整账号信息。</li>
+    </ul>
+  </div>
+
+  <div class="footer">科研互助平台 · 助人排行榜</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var session = null;
+var msg = document.getElementById('msg');
+
+APP.initPage('leaderboard').then(function (r) {
+  session = r.session;
+  load();
+});
+
+function load() {
+  var board = document.getElementById('board');
+  var mine = document.getElementById('mine');
+  board.innerHTML = '<p class="muted">加载中…</p>';
+  mine.innerHTML = '<p class="muted">加载中…</p>';
+  APP.dailyLeaderboard(10)
+    .then(function (d) {
+      var top = d.top || [];
+      var html = '<p class="muted">统计日期：<strong>' + APP.escapeHtml(d.date || '') + '</strong>（北京时间）　' +
+        '今日上榜人数：' + (d.total_helpers || 0) + ' 人</p>';
+
+      if (!top.length) {
+        html += '<div class="empty-state"><p>今天还没有助人记录，完成一次有效求助即可上榜。</p>' +
+          '<p class="muted">到「互助广场」找一个求助，上传应助文件并通过求助人审核，即可获得 5 积分助人奖励。</p>' +
+          '<div class="btn-row" style="justify-content:center"><a class="btn btn-sm" href="square.html">去互助广场看看</a></div></div>';
+      } else {
+        var rows = top.map(function (it) {
+          var medal = it.rank === 1 ? '🥇 ' : (it.rank === 2 ? '🥈 ' : (it.rank === 3 ? '🥉 ' : ''));
+          return '<tr><td>' + medal + it.rank + '</td>' +
+            '<td>' + APP.escapeHtml(it.display_name) + '</td>' +
+            '<td><strong>' + it.points + '</strong></td>' +
+            '<td>' + it.helps + '</td></tr>';
+        }).join('');
+        html += '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
+          '<th style="width:80px">排名</th><th>昵称</th><th style="width:130px">今日助人积分</th><th style="width:140px">今日成功帮助次数</th>' +
+          '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+        html += '<p class="muted" style="margin-top:8px">仅展示前 ' + (d.limit || 10) + ' 名。</p>';
+      }
+      board.innerHTML = html;
+
+      if (!session) {
+        mine.innerHTML = '<p class="muted">登录后可以查看自己的今日排名。<a href="login.html?next=leaderboard.html">去登录</a></p>';
+        return;
+      }
+      var me = d.me;
+      if (!me) {
+        mine.innerHTML = '<p>今天你还没有助人记录，完成一次有效求助即可上榜。</p>' +
+          '<p class="muted">提示：注册奖励与签到奖励不计入助人排行榜。</p>';
+      } else {
+        mine.innerHTML = '<div class="point-hero"><div class="point-hero-main">' +
+          '<div class="point-num">第 ' + me.rank + ' 名</div>' +
+          '<div class="point-lbl">我的今日排名（共 ' + (d.total_helpers || 0) + ' 人上榜）</div></div>' +
+          '<div class="point-hero-side">' +
+          '<div class="point-sm"><span class="point-sm-num">' + me.points + '</span><span class="point-sm-lbl">今日助人积分</span></div>' +
+          '<div class="point-sm"><span class="point-sm-num">' + me.helps + '</span><span class="point-sm-lbl">今日成功帮助次数</span></div>' +
+          '</div></div><p class="muted" style="margin-top:8px">上榜昵称：' + APP.escapeHtml(me.display_name) +
+          '（在个人中心修改昵称后，排行榜会同步显示新的昵称）。</p>';
+      }
+    })
+    .catch(function (err) {
+      board.innerHTML = '<p class="muted">排行榜加载失败：' + APP.escapeHtml(err.message || '未知错误') + '</p>';
+      mine.innerHTML = '';
+    });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "_说明": "邮件配置模板。复制为 .email.config.json 后填写；真实文件含密钥，禁止提交或打包。",
+  "_如何启用": "设置 host/user/pass 后，邮件功能才会真正发信；否则只写站内通知。",
+  "_也可用环境变量": "EMAIL_SMTP_HOST / EMAIL_SMTP_PORT / EMAIL_SMTP_SECURE / EMAIL_SMTP_USER / EMAIL_SMTP_PASS / EMAIL_SMTP_FROM",
+  "_常见服务商": "QQ邮箱 smtp.qq.com:465(secure) 或 :587；163 smtp.163.com:465；Gmail smtp.gmail.com:587；均为「客户端授权码」而非登录密码。",
+  "host": "",
+  "port": 465,
+  "secure": true,
+  "user": "",
+  "pass": "",
+  "from": "科研互助平台 <换成你的发信邮箱>",
+  "rejectUnauthorized": true,
+  "_workerSecret说明": "服务端投递凭据，自行生成随机长字符串；也可用环境变量 EMAIL_WORKER_SECRET 提供。",
+  "workerSecret": "请替换为随机生成的长字符串"
+}

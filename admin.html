@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理员后台 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="msg" id="msg"></div>
+
+  <div class="card" id="denied" class="hidden">
+    <h2>管理员后台</h2>
+    <div id="denied-body"><p class="muted">正在校验权限…</p></div>
+  </div>
+
+  <div id="admin-area" class="hidden">
+    <div class="tabs">
+      <button data-tab="pending" class="active">待复核任务</button>
+      <button data-tab="atts">附件审核</button>
+      <button data-tab="reqs">求助管理</button>
+      <button data-tab="logs">审核记录</button>
+      <button data-tab="violations">违规与封禁</button>
+      <button data-tab="unis">院校维护</button>
+      <button data-tab="journals">院校期刊订阅审核</button>
+    </div>
+
+    <div class="card" id="tab-pending">
+      <h2>待复核任务</h2>
+      <p class="muted">求助人初审不通过后，文件转由管理员独立复核。请下载文件检查是否与求助论文及要求相符，并给出最终裁定。裁定「符合要求」支付 5 积分悬赏；裁定「不符合要求」关闭求助、退还悬赏并记一次违规（累计 3 次封禁 3 天）。</p>
+      <div id="pending-list"><p class="muted">加载中…</p></div>
+    </div>
+
+    <div class="card hidden" id="tab-atts">
+      <h2>附件审核</h2>
+      <div id="att-admin-list"><p class="muted">加载中…</p></div>
+    </div>
+
+    <div class="card hidden" id="tab-reqs">
+      <h2>求助管理</h2>
+      <p class="muted">「已完成」状态由求助人审核通过应助附件时自动置位并同步完成悬赏支付，后台不提供手工设置；将求助改为「已关闭 / 取消」时，若悬赏仍为已预留会自动退还 5 积分（只退还一次）。</p>
+      <div id="req-admin-list"><p class="muted">加载中…</p></div>
+    </div>
+
+    <div class="card hidden" id="tab-logs">
+      <h2>审核记录</h2>
+      <div id="log-list"><p class="muted">加载中…</p></div>
+    </div>
+
+    <div class="card hidden" id="tab-violations">
+      <h2>违规与封禁</h2>
+      <h3 style="margin-top:0">违规记录</h3>
+      <div id="violation-list"><p class="muted">加载中…</p></div>
+      <h3>封禁记录</h3>
+      <div id="ban-list"><p class="muted">加载中…</p></div>
+    </div>
+
+    <div class="card hidden" id="tab-unis">
+      <h2>院校维护</h2>
+      <div class="doi-search">
+        <input type="text" id="uni-name" placeholder="院校名称，如 某某大学">
+        <input type="text" id="uni-domain" placeholder="邮箱域名，如 example.edu.cn">
+        <button class="btn" id="uni-add" style="margin-top:0">添加院校</button>
+      </div>
+      <div id="uni-list" style="margin-top:14px"><p class="muted">加载中…</p></div>
+    </div>
+
+    <div class="card hidden" id="tab-journals">
+      <h2>院校期刊订阅审核</h2>
+      <p class="muted">审核前必须确认信息来源可靠：优先使用学校图书馆官方电子资源导航、期刊导航、订购说明或图书馆正式答复。如果只能确认学校订购了某个数据库，不能因此直接确认该数据库内所有期刊均已订购，请把核验级别选为「仅确认订购数据库」。</p>
+      <p class="muted">只有「已核验订阅」的有效记录才会被每日推荐当作已核验订阅依据；「仅确认订购数据库」与「待核实」记录不参与。</p>
+
+      <div class="tabs" style="margin-bottom:12px">
+        <button data-jq="pending" class="active">待审核</button>
+        <button data-jq="need_info">需补充材料</button>
+        <button data-jq="approved">已通过</button>
+        <button data-jq="rejected">未通过</button>
+        <button data-jq="">全部</button>
+      </div>
+      <div id="journal-queue"><p class="muted">加载中…</p></div>
+
+      <h3>院校订阅目录（含正式目录与待核实记录）</h3>
+      <div class="doi-search">
+        <input type="text" id="jsubs-kw" placeholder="按期刊名 / ISSN / 出版商 / 院校搜索">
+        <select id="jsubs-status" style="max-width:240px;margin-top:0">
+          <option value="">全部状态</option>
+          <option value="verified">已核验订阅</option>
+          <option value="database_only">仅确认订购数据库</option>
+          <option value="pending">待核实</option>
+          <option value="revoked">已撤销</option>
+        </select>
+        <button class="btn" id="jsubs-search" style="margin-top:0">查询</button>
+      </div>
+      <div id="journal-subs" style="margin-top:12px"><p class="muted">加载中…</p></div>
+
+      <h3>期刊基础记录与重复合并</h3>
+      <p class="muted">同一期刊存在重复基础记录时，可把重复记录合并到要保留的记录：订阅关系会转移，重复的院校订阅会被去重。</p>
+      <div class="doi-search">
+        <input type="text" id="jj-kw" placeholder="按期刊名 / ISSN / 出版商搜索期刊基础记录">
+        <button class="btn" id="jj-search" style="margin-top:0">搜索</button>
+      </div>
+      <div id="journal-list" style="margin-top:12px"><p class="muted">加载中…</p></div>
+
+      <h3>审核与变更记录</h3>
+      <div id="journal-logs"><p class="muted">加载中…</p></div>
+    </div>
+  </div>
+
+  <div class="footer">科研互助平台 · 管理员后台</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var session = null;
+var msg = document.getElementById('msg');
+
+APP.requireLogin().then(function (s) {
+  if (!s) return null;
+  session = s;
+  APP.initPage('admin');
+  return APP.checkAdmin(s);
+}).then(function (admin) {
+  if (!session) return;
+  if (!admin) {
+    document.getElementById('denied-body').innerHTML =
+      '<div class="msg error">当前账号不是管理员，无权访问后台。数据库 RLS 策略已在服务端拒绝非管理员的管理操作。</div>';
+    return;
+  }
+  document.getElementById('admin-area').classList.remove('hidden');
+  document.getElementById('denied').classList.add('hidden');
+  loadPending();
+  loadAtts();
+  loadReqs();
+  loadLogs();
+  loadViolations();
+  loadUnis();
+  loadJournalQueue('pending');
+  loadJournalSubs();
+  loadJournalBase();
+  loadJournalLogs();
+  // 到期文件清理：进入后台时触发一次幂等的数据库标记；
+  // 云存储对象由各自属主在下次登录时删除（平台不提供服务端存储删除凭证）。
+  APP.cleanupExpiredFiles().then(function (r) {
+    if (r && r.expired_count) {
+      APP.showMsg(msg, '已标记 ' + r.expired_count + ' 个到期附件为「已过期」，相关文件不再可下载。', 'info');
+    }
+  }).catch(function () { /* 静默：清理失败不影响后台使用 */ });
+});
+
+// 标签切换
+Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+  b.addEventListener('click', function () {
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (x) { x.classList.remove('active'); });
+    b.classList.add('active');
+    ['pending', 'atts', 'reqs', 'logs', 'violations', 'unis', 'journals'].forEach(function (t) {
+      document.getElementById('tab-' + t).classList.toggle('hidden', t !== b.getAttribute('data-tab'));
+    });
+  });
+});
+
+// ---- 待复核任务（管理员独立入口）----
+function loadPending() {
+  APP.cloud.database.from('review_tasks')
+    .select('id, request_id, attachment_id, requester_note, created_at')
+    .is('resolved_at', null)
+    .order('created_at', { ascending: true })
+    .then(function (r) {
+      var box = document.getElementById('pending-list');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">当前没有待复核任务。</p>'; return; }
+      var ids = r.data.map(function (t) { return t.request_id; });
+      var aids = r.data.map(function (t) { return t.attachment_id; });
+      return Promise.all([
+        APP.cloud.database.from('help_requests').select('*').in('id', ids),
+        APP.cloud.database.from('attachments').select('*').in('id', aids)
+      ]).then(function (rs) {
+        var reqMap = {}, attMap = {};
+        (rs[0].data || []).forEach(function (x) { reqMap[x.id] = x; });
+        (rs[1].data || []).forEach(function (x) { attMap[x.id] = x; });
+        box.innerHTML = r.data.map(function (t) {
+          var hr = reqMap[t.request_id] || {};
+          var a = attMap[t.attachment_id] || {};
+          var cite = APP.paperCiteLine(hr);
+          var html = '<div class="req-item"><h3>#' + t.request_id + ' ' + APP.escapeHtml(hr.paper_title || hr.doi || '（未填写标题）') +
+            ' <span class="badge st-review">待管理员复核</span></h3>' +
+            '<div class="cite-line">' + (cite || '<em class="muted">期刊 / 年份 / 卷期页码：暂未提供</em>') + '</div>' +
+            '<div class="meta"><span>DOI：' + APP.escapeHtml(hr.doi || '暂未提供') + '</span>' +
+            '<span>求助人：' + APP.escapeHtml(hr.owner_name || hr.owner_id || '') + '</span>' +
+            '<span>悬赏：' + (hr.bounty_points || 0) + ' 积分（' + (hr.bounty_status === 'locked' ? '已预留待裁定' : hr.bounty_status) + '）</span></div>' +
+            '<div class="meta"><span>附件：' + APP.escapeHtml(a.file_name || '') + '</span>' +
+            '<span>应助人：' + APP.escapeHtml(a.owner_name || a.owner_id || '') + '</span>' +
+            '<span>上传：' + APP.fmtTime(a.created_at) + '</span></div>' +
+            (hr.description ? '<div class="desc">求助说明：' + APP.escapeHtml(hr.description) + '</div>' : '') +
+            '<div class="desc"><strong>求助人初审意见：</strong>' + APP.escapeHtml(t.requester_note || '') + '</div>' +
+            '<div class="btn-row"><button class="btn btn-sm btn-secondary" data-pdl="' + t.attachment_id + '" data-name="' + APP.escapeHtml(a.file_name || '') + '">下载待复核文件</button></div>' +
+            '<div class="btn-row" style="margin-top:8px"><input type="text" id="ano-' + t.attachment_id + '" placeholder="管理员最终审核意见（必填）" style="flex:1;min-width:200px">' +
+            '<button class="btn btn-sm btn-success" data-conform="' + t.attachment_id + '">文件符合要求</button>' +
+            '<button class="btn btn-sm btn-danger" data-nonconform="' + t.attachment_id + '">文件不符合要求</button></div>' +
+            '<div><a href="request.html?id=' + t.request_id + '" class="muted">查看求助详情 →</a></div></div>';
+          return html;
+        }).join('');
+        Array.prototype.forEach.call(box.querySelectorAll('[data-pdl]'), function (b) {
+          b.addEventListener('click', function () {
+            downloadAtt(parseInt(b.getAttribute('data-pdl'), 10), b.getAttribute('data-name'));
+          });
+        });
+        Array.prototype.forEach.call(box.querySelectorAll('[data-conform]'), function (b) {
+          b.addEventListener('click', function () { doAdminReview(parseInt(b.getAttribute('data-conform'), 10), 'conform'); });
+        });
+        Array.prototype.forEach.call(box.querySelectorAll('[data-nonconform]'), function (b) {
+          b.addEventListener('click', function () { doAdminReview(parseInt(b.getAttribute('data-nonconform'), 10), 'nonconform'); });
+        });
+      });
+    });
+}
+
+function downloadAtt(attId, fileName) {
+  APP.showMsg(msg, '正在获取下载地址…', 'info');
+  APP.cloud.database.from('attachment_files').select('file_path').eq('attachment_id', attId).maybeSingle()
+    .then(function (r) {
+      if (r.error) throw new Error('下载权限校验失败：' + r.error.message);
+      if (!r.data) throw new Error('无权下载该附件。');
+      return APP.downloadFile(r.data.file_path, fileName);
+    })
+    .then(function () { APP.showMsg(msg, '下载完成。', 'success'); })
+    .catch(function (err) { APP.showMsg(msg, err.message, 'error'); });
+}
+
+function doAdminReview(attId, resolution) {
+  var note = (document.getElementById('ano-' + attId).value || '').trim();
+  if (!note) { APP.showMsg(msg, '管理员必须填写最终审核意见。', 'error'); return; }
+  var tip = resolution === 'conform'
+    ? '将判定「文件符合要求」：求助标记为已完成，并支付 5 积分悬赏给应助人。'
+    : '将判定「文件不符合要求」：求助关闭、5 积分悬赏退还求助人、应助人计一次违规（累计 3 次封禁 3 天）。';
+  if (!confirm(tip + '\n\n确定继续？')) return;
+  APP.showMsg(msg, '正在提交复核裁定…', 'info');
+  APP.adminReview(attId, resolution, note)
+    .then(function (d) {
+      var txt = resolution === 'conform'
+        ? ('复核通过，悬赏 ' + (d.bounty_points || 0) + ' 积分已支付，求助已完成。')
+        : ('已判定不符合要求：已退还 ' + (d.refund_points || 0) + ' 积分，该应助人累计违规 ' + (d.violation_count || 0) + ' 次' + (d.banned ? '，已封禁 3 天。' : '。'));
+      APP.showMsg(msg, txt, 'success');
+      loadPending(); loadAtts(); loadLogs(); loadReqs(); loadViolations();
+    })
+    .catch(function (err) { APP.showMsg(msg, '复核失败：' + (err.message || '未知错误'), 'error'); });
+}
+
+// ---- 违规与封禁 ----
+function loadViolations() {
+  APP.cloud.database.from('violations').select('*').order('created_at', { ascending: false }).limit(100)
+    .then(function (r) {
+      var box = document.getElementById('violation-list');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无违规记录。</p>'; return; }
+      box.innerHTML = r.data.map(function (v) {
+        return '<div class="req-item"><h3>用户 ' + APP.escapeHtml(v.user_id) + ' · 附件 #' + (v.attachment_id || '') + '</h3>' +
+          '<div class="meta"><span>求助 #' + (v.request_id || '') + '</span><span>' + APP.fmtTime(v.created_at) + '</span></div>' +
+          (v.reason ? '<div class="desc">原因：' + APP.escapeHtml(v.reason) + '</div>' : '') + '</div>';
+      }).join('');
+    });
+  APP.cloud.database.from('bans').select('*').order('created_at', { ascending: false }).limit(50)
+    .then(function (r) {
+      var box = document.getElementById('ban-list');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无封禁记录。</p>'; return; }
+      box.innerHTML = r.data.map(function (b) {
+        var active = new Date(b.ends_at).getTime() > Date.now();
+        return '<div class="req-item"><h3>用户 ' + APP.escapeHtml(b.user_id) + ' ' +
+          (active ? '<span class="badge st-closed">封禁中</span>' : '<span class="badge st-resolved">已结束</span>') + '</h3>' +
+          '<div class="meta"><span>开始：' + APP.fmtTime(b.starts_at) + '</span><span>结束：' + APP.fmtTime(b.ends_at) + '</span></div>' +
+          (b.reason ? '<div class="desc">' + APP.escapeHtml(b.reason) + '</div>' : '') + '</div>';
+      }).join('');
+    });
+}
+
+// ---- 附件审核 ----
+function loadAtts() {
+  APP.cloud.database.from('attachments').select('*')
+    .order('created_at', { ascending: false }).limit(100)
+    .then(function (r) {
+      var box = document.getElementById('att-admin-list');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无附件。</p>'; return; }
+      box.innerHTML = r.data.map(function (a) {
+        var html = '<div class="req-item"><h3>' + APP.escapeHtml(a.file_name) + ' ' + APP.attStatusBadge(a.status) + '</h3>' +
+          '<div class="meta"><span>所属求助：<a href="request.html?id=' + a.request_id + '">#' + a.request_id + '</a></span>' +
+          '<span>上传者：' + APP.escapeHtml(a.owner_name || a.owner_id) + '</span><span>' + APP.fmtTime(a.created_at) + '</span></div>';
+        html += APP.renderOaBlock({
+          oa_source_url: a.oa_source_url, license_type: a.license_type,
+          license_note: a.license_note, share_confirmed: a.share_confirmed
+        });
+        if (a.review_note) html += '<p class="muted">审核意见：' + APP.escapeHtml(a.review_note) + '（' + APP.fmtTime(a.reviewed_at) + '）</p>';
+        // 管理员只能做「最终复核」（附件处于待复核状态时）；待求助人初审的附件不在此处越权操作
+        if (a.status === 'rejected_by_requester') {
+          html += '<div class="btn-row" style="margin-top:8px"><input type="text" placeholder="管理员最终审核意见（必填）" id="ano-' + a.id + '" style="flex:1;min-width:200px">' +
+            '<button class="btn btn-sm btn-success" data-conform="' + a.id + '">文件符合要求</button>' +
+            '<button class="btn btn-sm btn-danger" data-nonconform="' + a.id + '">文件不符合要求</button></div>';
+        } else if (a.status === 'pending') {
+          html += '<p class="muted">该附件正在等待求助人初审，管理员复核入口在求助人提交不通过后开启。</p>';
+        }
+        html += '</div>';
+        return html;
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-conform]'), function (b) {
+        b.addEventListener('click', function () { doAdminReview(parseInt(b.getAttribute('data-conform'), 10), 'conform'); });
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-nonconform]'), function (b) {
+        b.addEventListener('click', function () { doAdminReview(parseInt(b.getAttribute('data-nonconform'), 10), 'nonconform'); });
+      });
+    });
+}
+
+// 管理员的最终裁定统一走 admin_review_attachment（服务端校验 is_admin()），
+// 与求助人直接审核通过共用同一套结算逻辑（同一 dedupe_key，天然防重复支付）。
+// 旧的 review() 已移除：管理员不再直接在「待求助人初审」阶段越权通过，
+// 必须等求助人提交不通过、生成复核任务后再裁定。
+
+// ---- 求助管理 ----
+function loadReqs() {
+  APP.cloud.database.from('help_requests').select('*')
+    .order('created_at', { ascending: false }).limit(100)
+    .then(function (r) {
+      var box = document.getElementById('req-admin-list');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无求助。</p>'; return; }
+      // 「已完成」只能由审核/复核流程由服务端置位（同时完成悬赏支付），不提供手工设置；
+      // 待审核 / 待复核期间服务端拒绝改状态（有应助文件在审，不能取消或退款）
+      var opts = { open: '求助中', closed: '已关闭 / 取消（退还悬赏）' };
+      box.innerHTML = r.data.map(function (it) {
+        var sel = '<select id="st-' + it.id + '" style="max-width:130px">' +
+          Object.keys(opts).map(function (s) {
+            return '<option value="' + s + '"' + (it.status === s ? ' selected' : '') + '>' + opts[s] + '</option>';
+          }).join('') + '</select>';
+        return '<div class="req-item"><h3><a href="request.html?id=' + it.id + '">#' + it.id + ' ' + APP.escapeHtml(it.paper_title || it.doi) + '</a> ' + APP.statusBadge(it.status) + ' ' + APP.bountyBadge(it) + '</h3>' +
+          '<div class="meta"><span>DOI：' + APP.escapeHtml(it.doi) + '</span><span>发布者：' + APP.escapeHtml(it.owner_name || it.owner_id) + '</span><span>' + APP.fmtTime(it.created_at) + '</span></div>' +
+          '<div class="btn-row">' + sel +
+          '<button class="btn btn-sm" data-save="' + it.id + '">保存状态</button>' +
+          '<button class="btn btn-sm btn-danger" data-del="' + it.id + '">删除</button></div></div>';
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-save]'), function (b) {
+        b.addEventListener('click', function () {
+          var rid = parseInt(b.getAttribute('data-save'), 10);
+          var st = document.getElementById('st-' + rid).value;
+          // 走服务端函数：关闭 / 取消未完成求助时自动退还预留悬赏（只退一次）
+          APP.setRequestStatus(rid, st)
+            .then(function (r2) {
+              APP.showMsg(msg, (r2 && r2.refunded)
+                ? ('求助 #' + rid + ' 状态已更新，已退还 ' + r2.refund_points + ' 积分。')
+                : ('求助 #' + rid + ' 状态已更新。'), 'success');
+              loadReqs();
+            })
+            .catch(function (err) {
+              APP.showMsg(msg, '状态更新失败：' + (err.message || '未知错误'), 'error');
+            });
+        });
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-del]'), function (b) {
+        b.addEventListener('click', function () {
+          if (!confirm('确定删除该求助？关联附件记录需另行处理，删除不可恢复。')) return;
+          var rid = parseInt(b.getAttribute('data-del'), 10);
+          // 走服务端函数：删除前若悬赏仍为已预留则先退还
+          APP.deleteRequestWithRefund(rid)
+            .then(function (r2) {
+              APP.showMsg(msg, (r2 && r2.refunded)
+                ? ('求助 #' + rid + ' 已删除，并退还 ' + r2.refund_points + ' 积分。')
+                : ('求助 #' + rid + ' 已删除。'), 'success');
+              loadReqs();
+            })
+            .catch(function (err) {
+              APP.showMsg(msg, '删除失败：' + (err.message || '未知错误'), 'error');
+            });
+        });
+      });
+    });
+}
+
+// ---- 审核记录 ----
+function loadLogs() {
+  APP.cloud.database.from('review_logs')
+    .select('id, action, note, reviewer_name, reviewer_id, created_at, attachment:attachments(file_name, request_id)')
+    .order('created_at', { ascending: false }).limit(100)
+    .then(function (r) {
+      var box = document.getElementById('log-list');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无审核记录。</p>'; return; }
+      var rows = r.data.map(function (l) {
+        return '<tr><td>' + l.id + '</td><td>' + APP.escapeHtml((l.attachment && l.attachment.file_name) || '附件已删除') + '</td>' +
+          '<td>' + (l.action === 'approve' ? '<span class="badge st-resolved">通过</span>' : '<span class="badge st-closed">拒绝</span>') + '</td>' +
+          '<td>' + APP.escapeHtml(l.note || '') + '</td><td>' + APP.escapeHtml(l.reviewer_name || l.reviewer_id) + '</td>' +
+          '<td>' + APP.fmtTime(l.created_at) + '</td></tr>';
+      }).join('');
+      box.innerHTML = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>ID</th><th>附件</th><th>结果</th><th>审核意见</th><th>审核人</th><th>时间</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    });
+}
+
+// ---- 院校维护 ----
+function loadUnis() {
+  APP.cloud.database.from('universities').select('*').order('created_at', { ascending: false })
+    .then(function (r) {
+      var box = document.getElementById('uni-list');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无院校记录。</p>'; return; }
+      box.innerHTML = r.data.map(function (u) {
+        return '<div class="req-item"><h3>' + APP.escapeHtml(u.name) + '</h3>' +
+          '<div class="meta"><span>域名：' + APP.escapeHtml(u.domain || '未提供') + '</span><span>' + APP.fmtTime(u.created_at) + '</span>' +
+          '<span><a href="#" data-unidel="' + u.id + '" style="color:#b91c1c">删除</a></span></div></div>';
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-unidel]'), function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (!confirm('确定删除该院校？')) return;
+          var uid = parseInt(a.getAttribute('data-unidel'), 10);
+          APP.cloud.database.from('universities').delete().eq('id', uid).select()
+            .then(function (r2) {
+              if (r2.error || !r2.data || !r2.data.length) { APP.showMsg(msg, '删除失败：权限不足。', 'error'); return; }
+              APP.showMsg(msg, '院校已删除。', 'success');
+              loadUnis();
+            });
+        });
+      });
+    });
+}
+
+document.getElementById('uni-add').addEventListener('click', function () {
+  var name = document.getElementById('uni-name').value.trim();
+  var domain = document.getElementById('uni-domain').value.trim();
+  if (!name) { APP.showMsg(msg, '请填写院校名称。', 'error'); return; }
+  APP.cloud.database.from('universities').insert({ name: name, domain: domain || null }).select()
+    .then(function (r) {
+      if (r.error) {
+        if (String(r.error.code || '').indexOf('23505') >= 0) APP.showMsg(msg, '该院校已存在。', 'error');
+        else APP.showMsg(msg, '添加失败：' + r.error.message, 'error');
+        return;
+      }
+      if (!r.data || !r.data.length) { APP.showMsg(msg, '添加失败：权限不足。', 'error'); return; }
+      APP.showMsg(msg, '院校已添加。', 'success');
+      document.getElementById('uni-name').value = '';
+      document.getElementById('uni-domain').value = '';
+      loadUnis();
+    });
+});
+
+/* ================= 院校期刊订阅审核 ================= */
+var jqStatus = 'pending';
+
+function jqEsc(s) { return APP.escapeHtml(s === null || s === undefined ? '' : String(s)); }
+
+Array.prototype.forEach.call(document.querySelectorAll('[data-jq]'), function (b) {
+  b.addEventListener('click', function () {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-jq]'), function (x) { x.classList.remove('active'); });
+    b.classList.add('active');
+    jqStatus = b.getAttribute('data-jq');
+    loadJournalQueue(jqStatus);
+  });
+});
+
+function jqBadge(status) {
+  return '<span class="badge ' + APP.subStatusClass(status) + '">' + jqEsc(APP.subStatusText(status)) + '</span>';
+}
+
+function loadJournalQueue(status) {
+  var box = document.getElementById('journal-queue');
+  box.innerHTML = '<p class="muted">加载中…</p>';
+  APP.adminListJournalSubmissions(status || null).then(function (d) {
+    var rows = d.rows || [];
+    var sm = d.summary || {};
+    var head = '<p class="muted">待审核 ' + (sm.pending || 0) + ' · 需补充材料 ' + (sm.need_info || 0) +
+      ' · 已通过 ' + (sm.approved || 0) + ' · 未通过 ' + (sm.rejected || 0) +
+      ' · 已撤回 ' + (sm.withdrawn || 0) + '</p>';
+    if (!rows.length) {
+      box.innerHTML = head + '<p class="muted">当前没有符合条件的提交记录。</p>';
+      return;
+    }
+    box.innerHTML = head + rows.map(function (s) {
+      var canReview = s.status === 'pending' || s.status === 'need_info';
+      var html = '<div class="req-item"><h3>' + jqEsc(s.journal_title) + ' ' + jqBadge(s.status) + '</h3>' +
+        '<div class="meta"><span>院校：' + jqEsc(s.university_name || '') + '</span>' +
+        '<span>提交人：' + jqEsc(s.submitter_nick || s.submitter_name || s.submitter_id) + '</span>' +
+        '<span>提交时间：' + APP.fmtTime(s.created_at) + '</span></div>';
+      var det = [];
+      if (s.issn) det.push('ISSN ' + jqEsc(s.issn));
+      if (s.eissn) det.push('eISSN ' + jqEsc(s.eissn));
+      if (s.publisher) det.push('出版商 ' + jqEsc(s.publisher));
+      if (s.subject) det.push('学科 ' + jqEsc(s.subject));
+      if (s.database_name) det.push('数据库 ' + jqEsc(s.database_name));
+      if (s.coverage_years) det.push('年份/范围 ' + jqEsc(s.coverage_years));
+      if (det.length) html += '<p class="muted">' + det.join(' · ') + '</p>';
+      if (s.library_url) html += '<p class="muted">来源链接：<a href="' + jqEsc(s.library_url) + '" target="_blank" rel="noopener noreferrer">' + jqEsc(s.library_url) + '</a></p>';
+      if (s.evidence_note) html += '<p class="muted">其他核验依据：' + jqEsc(s.evidence_note) + '</p>';
+      if (s.remark) html += '<p class="muted">补充说明：' + jqEsc(s.remark) + '</p>';
+      if (s.admin_note) html += '<p class="muted">上次审核意见：' + jqEsc(s.admin_note) + '</p>';
+      if (s.reviewer_name && s.reviewed_at) html += '<p class="muted">审核人：' + jqEsc(s.reviewer_name) + ' · ' + APP.fmtTime(s.reviewed_at) + '</p>';
+
+      if (canReview) {
+        html += '<div class="btn-row" style="margin-top:8px;flex-wrap:wrap">' +
+          '<select id="jq-lvl-' + s.id + '" style="max-width:240px;margin-top:0">' +
+          '<option value="journal">核验级别：已核验具体期刊</option>' +
+          '<option value="database_only">核验级别：仅确认订购数据库</option>' +
+          '</select>' +
+          '<input type="text" id="jq-years-' + s.id + '" placeholder="订阅年份 / 访问范围（可留空=待核实）" style="flex:1;min-width:180px">' +
+          '</div>' +
+          '<div class="btn-row" style="margin-top:8px;flex-wrap:wrap">' +
+          '<input type="text" id="jq-note-' + s.id + '" placeholder="审核意见（通过时作为核验依据，必填）" style="flex:1;min-width:220px">' +
+          '</div>' +
+          '<div class="btn-row" style="margin-top:8px">' +
+          '<button class="btn btn-sm btn-success" data-jq-approve="' + s.id + '">审核通过</button>' +
+          '<button class="btn btn-sm btn-secondary" data-jq-needinfo="' + s.id + '">要求补充材料</button>' +
+          '<button class="btn btn-sm btn-danger" data-jq-reject="' + s.id + '">审核不通过</button>' +
+          '</div>';
+      }
+      html += '</div>';
+      return html;
+    }).join('');
+
+    function act(id, action) {
+      var noteEl = document.getElementById('jq-note-' + id);
+      var lvlEl = document.getElementById('jq-lvl-' + id);
+      var yrEl = document.getElementById('jq-years-' + id);
+      var note = noteEl ? (noteEl.value || '').trim() : '';
+      if (action === 'approve' && !note) {
+        APP.showMsg(msg, '审核通过必须填写核验依据（审核意见）。', 'error');
+        return;
+      }
+      if ((action === 'reject' || action === 'need_info') && !note) {
+        APP.showMsg(msg, '请填写审核意见，便于提交人修改。', 'error');
+        return;
+      }
+      APP.adminReviewJournalSubmission({
+        id: id,
+        action: action,
+        note: note,
+        verify_level: lvlEl ? lvlEl.value : 'journal',
+        coverage_years: yrEl ? (yrEl.value || '').trim() : '',
+        source_url: ''
+      }).then(function () {
+        APP.showMsg(msg, action === 'approve' ? '已审核通过并写入院校目录。' : (action === 'reject' ? '已标记为审核不通过。' : '已要求提交人补充材料。'), 'success');
+        loadJournalQueue(jqStatus);
+        loadJournalSubs();
+        loadJournalLogs();
+      }, function (err) {
+        APP.showMsg(msg, '操作失败：' + (err.message || '未知错误'), 'error');
+      });
+    }
+
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jq-approve]'), function (b) {
+      b.addEventListener('click', function () { act(Number(this.getAttribute('data-jq-approve')), 'approve'); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jq-needinfo]'), function (b) {
+      b.addEventListener('click', function () { act(Number(this.getAttribute('data-jq-needinfo')), 'need_info'); });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jq-reject]'), function (b) {
+      b.addEventListener('click', function () { act(Number(this.getAttribute('data-jq-reject')), 'reject'); });
+    });
+  }, function (err) {
+    document.getElementById('journal-queue').innerHTML = '<p class="muted">加载失败：' + jqEsc(err.message || '未知错误') + '</p>';
+  });
+}
+
+function subsStatusBadge(st) {
+  var cls = st === 'verified' ? 'st-resolved' : (st === 'database_only' ? 'st-pending' : (st === 'revoked' ? 'st-closed' : 'st-review'));
+  return '<span class="badge ' + cls + '">' + jqEsc(APP.verifyText(st)) + '</span>';
+}
+
+function loadJournalSubs() {
+  var box = document.getElementById('journal-subs');
+  var kw = (document.getElementById('jsubs-kw').value || '').trim();
+  var st = document.getElementById('jsubs-status').value || '';
+  box.innerHTML = '<p class="muted">加载中…</p>';
+  APP.adminListSubscriptions(null, kw, st || null).then(function (d) {
+    var rows = d.rows || [];
+    var s = d.stats || {};
+    var head = '<p class="muted">已核验 ' + (s.verified || 0) + ' · 仅确认数据库 ' + (s.database_only || 0) +
+      ' · 待核实 ' + (s.pending || 0) + ' · 已撤销 ' + (s.revoked || 0) +
+      ' · 其中演示测试数据 ' + (s.demo || 0) + '</p>';
+    if (!rows.length) { box.innerHTML = head + '<p class="muted">没有匹配的订阅记录。</p>'; return; }
+    box.innerHTML = head + '<div class="tbl-wrap"><table><thead><tr>' +
+      '<th>院校</th><th>期刊</th><th>ISSN</th><th>数据库</th><th>状态</th><th>范围年份</th><th>核验依据 / 审核人</th><th>操作</th>' +
+      '</tr></thead><tbody>' + rows.map(function (r) {
+        var ops = '<input type="text" id="jsub-year-' + r.id + '" placeholder="改为…" style="max-width:110px;margin:0 0 4px">' +
+          '<button class="btn btn-sm btn-secondary" data-jsub-saveyear="' + r.id + '">改年份</button>' +
+          '<button class="btn btn-sm btn-danger" data-jsub-revoke="' + r.id + '">撤销</button>';
+        return '<tr>' +
+          '<td>' + jqEsc(r.university_name) + '</td>' +
+          '<td>' + jqEsc(r.title) + (r.is_demo ? ' <span class="badge st-review">演示测试数据</span>' : '') + '</td>' +
+          '<td>' + (r.issn ? jqEsc(r.issn) : '<span class="muted">待核实</span>') + '</td>' +
+          '<td>' + jqEsc(r.database_name || '—') + '</td>' +
+          '<td>' + subsStatusBadge(r.status) + '</td>' +
+          '<td>' + jqEsc(r.coverage_years || '待核实') + '</td>' +
+          '<td class="muted">' + jqEsc(r.evidence_note || '—') +
+          (r.reviewer_name ? '<br>审核人：' + jqEsc(r.reviewer_name) : '') +
+          (r.reviewed_at ? '<br>' + APP.fmtTime(r.reviewed_at) : '') + '</td>' +
+          '<td>' + ops + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jsub-saveyear]'), function (b) {
+      b.addEventListener('click', function () {
+        var id = Number(this.getAttribute('data-jsub-saveyear'));
+        var row = rows.filter(function (x) { return x.id === id; })[0];
+        var y = (document.getElementById('jsub-year-' + id).value || '').trim();
+        if (!y) { APP.showMsg(msg, '请填写要修改的订阅年份 / 范围。', 'error'); return; }
+        APP.adminUpsertSubscription({
+          university_id: row.university_id,
+          journal_title: row.title,
+          journal_id: row.journal_id,
+          status: row.status,
+          issn: row.issn,
+          eissn: row.eissn,
+          publisher: row.publisher,
+          subject: row.subject,
+          database_name: row.database_name,
+          coverage_years: y,
+          coverage_scope: row.coverage_scope,
+          source_url: row.source_url,
+          evidence_note: row.evidence_note,
+          is_demo: row.is_demo
+        }).then(function () {
+          APP.showMsg(msg, '订阅范围已更新。', 'success');
+          loadJournalSubs(); loadJournalLogs();
+        }, function (err) { APP.showMsg(msg, '更新失败：' + (err.message || ''), 'error'); });
+      });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jsub-revoke]'), function (b) {
+      b.addEventListener('click', function () {
+        var id = Number(this.getAttribute('data-jsub-revoke'));
+        var note = prompt('撤销原因（会记录到审核日志，例如：学校已停止订购 / 记录有误）');
+        if (note === null) return;
+        APP.adminRevokeSubscription(id, note).then(function () {
+          APP.showMsg(msg, '订阅记录已撤销，不再参与推荐。', 'success');
+          loadJournalSubs(); loadJournalLogs();
+        }, function (err) { APP.showMsg(msg, '撤销失败：' + (err.message || ''), 'error'); });
+      });
+    });
+  }, function (err) {
+    box.innerHTML = '<p class="muted">加载失败：' + jqEsc(err.message || '未知错误') + '</p>';
+  });
+}
+
+document.getElementById('jsubs-search').addEventListener('click', loadJournalSubs);
+
+function loadJournalBase() {
+  var box = document.getElementById('journal-list');
+  var kw = (document.getElementById('jj-kw').value || '').trim();
+  box.innerHTML = '<p class="muted">加载中…</p>';
+  APP.adminListJournals(kw).then(function (d) {
+    var rows = d.rows || [];
+    if (!rows.length) { box.innerHTML = '<p class="muted">没有匹配的期刊基础记录。</p>'; return; }
+    box.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th>ID</th><th>期刊名称</th><th>ISSN</th><th>出版商</th><th>学科</th><th>订阅记录</th><th>合并到</th></tr></thead><tbody>' +
+      rows.map(function (j) {
+        return '<tr><td>' + j.id + '</td><td>' + jqEsc(j.title) + '</td>' +
+          '<td>' + (j.issn ? jqEsc(j.issn) : '<span class="muted">待核实</span>') + '</td>' +
+          '<td>' + jqEsc(j.publisher || '—') + '</td><td>' + jqEsc(j.subject || '—') + '</td>' +
+          '<td>' + (j.sub_count || 0) + ' 条（已核验 ' + (j.verified_count || 0) + '）</td>' +
+          '<td><input type="text" id="jj-to-' + j.id + '" placeholder="目标期刊 ID" style="max-width:90px;margin:0 0 4px">' +
+          '<button class="btn btn-sm btn-secondary" data-jj-merge="' + j.id + '">合并</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jj-merge]'), function (b) {
+      b.addEventListener('click', function () {
+        var fromId = Number(this.getAttribute('data-jj-merge'));
+        var toId = Number((document.getElementById('jj-to-' + fromId).value || '').trim());
+        if (!toId || toId === fromId) { APP.showMsg(msg, '请填写不同的目标期刊 ID。', 'error'); return; }
+        if (!confirm('将期刊 #' + fromId + ' 合并到 #' + toId + '？该操作会转移订阅关系并删除重复记录。')) return;
+        APP.adminMergeJournals(fromId, toId, '').then(function (r) {
+          APP.showMsg(msg, '合并完成：转移订阅 ' + (r.moved || 0) + ' 条，去重删除 ' + (r.merged_away || 0) + ' 条。', 'success');
+          loadJournalBase(); loadJournalSubs(); loadJournalLogs();
+        }, function (err) { APP.showMsg(msg, '合并失败：' + (err.message || ''), 'error'); });
+      });
+    });
+  }, function (err) {
+    box.innerHTML = '<p class="muted">加载失败：' + jqEsc(err.message || '未知错误') + '</p>';
+  });
+}
+
+document.getElementById('jj-search').addEventListener('click', loadJournalBase);
+
+var JOURNAL_ACTION_LABEL = {
+  submit: '用户提交', resubmit: '修改后重新提交', approve: '审核通过',
+  reject: '审核不通过', need_info: '要求补充材料',
+  edit_range: '修改核验范围/状态', merge: '合并记录', revoke: '撤销订阅', withdraw: '用户撤回'
+};
+
+function loadJournalLogs() {
+  var box = document.getElementById('journal-logs');
+  box.innerHTML = '<p class="muted">加载中…</p>';
+  APP.adminJournalLogs(100).then(function (d) {
+    var rows = d.rows || [];
+    if (!rows.length) { box.innerHTML = '<p class="muted">暂无记录。</p>'; return; }
+    box.innerHTML = rows.map(function (l) {
+      return '<div class="req-item"><h3>' + jqEsc(JOURNAL_ACTION_LABEL[l.action] || l.action) +
+        ' · ' + jqEsc(l.journal_title || ('订阅 #' + (l.subscription_id || '—'))) + '</h3>' +
+        '<div class="meta"><span>' + jqEsc(l.university_name || '') + '</span>' +
+        '<span>' + jqEsc(l.reviewer_name || '系统') + '</span>' +
+        '<span>' + APP.fmtTime(l.created_at) + '</span></div>' +
+        (l.note ? '<p class="muted">' + jqEsc(l.note) + '</p>' : '') + '</div>';
+    }).join('');
+  }, function (err) {
+    box.innerHTML = '<p class="muted">加载失败：' + jqEsc(err.message || '未知错误') + '</p>';
+  });
+}
+</script>
+</body>
+</html>

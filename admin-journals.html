@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>期刊数据管理 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="card">
+    <h2>期刊数据管理</h2>
+    <p class="muted">仅管理员可见。所有写入都经过服务端函数校验：影响因子必须带年份与来源，分区必须指定 JCR / 中科院体系和学科类别，历史年份不会被覆盖。</p>
+  </div>
+  <div id="deny" class="card hidden" style="margin-top:16px">
+    <h3>无访问权限</h3>
+    <p class="muted">当前账号不是管理员。普通用户可以检索和查看公开数据，但不能修改正式指标记录。</p>
+    <p><a href="journals.html">前往期刊数据库 →</a></p>
+  </div>
+
+  <div id="main" class="hidden">
+    <div class="card" style="margin-top:16px">
+      <div class="btn-row">
+        <button class="btn btn-secondary" data-tab="list">期刊列表</button>
+        <button class="btn btn-secondary" data-tab="edit">新增 / 编辑</button>
+        <button class="btn btn-secondary" data-tab="import">CSV 导入</button>
+        <button class="btn btn-secondary" data-tab="logs">导入历史</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <!-- ============ 期刊列表 ============ -->
+    <div id="tab-list" class="hidden">
+      <div class="card" style="margin-top:16px">
+        <div class="doi-search">
+          <input type="text" id="kw" placeholder="搜索刊名 / ISSN / eISSN">
+          <button class="btn" id="btn-search" style="margin-top:0">搜索</button>
+          <button class="btn btn-secondary" id="btn-new" style="margin-top:0">新增期刊</button>
+        </div>
+        <div class="muted" id="list-info" style="margin-top:10px;font-size:13px"></div>
+      </div>
+      <div id="list"></div>
+      <div class="btn-row" style="justify-content:center;margin-top:8px">
+        <button class="btn btn-secondary" id="prev" disabled>上一页</button>
+        <span class="muted" id="page-info" style="align-self:center"></span>
+        <button class="btn btn-secondary" id="next" disabled>下一页</button>
+      </div>
+    </div>
+
+    <!-- ============ 新增 / 编辑 ============ -->
+    <div id="tab-edit" class="hidden">
+      <div class="card" style="margin-top:16px">
+        <h3 id="edit-title">新增期刊</h3>
+        <input type="hidden" id="e-id">
+        <div class="form-grid">
+          <div><label class="muted" style="font-size:12px">英文刊名 *</label><input type="text" id="e-title"></div>
+          <div><label class="muted" style="font-size:12px">中文刊名</label><input type="text" id="e-cn"></div>
+          <div><label class="muted" style="font-size:12px">ISSN</label><input type="text" id="e-issn" placeholder="0025-1747"></div>
+          <div><label class="muted" style="font-size:12px">eISSN</label><input type="text" id="e-eissn" placeholder="1758-6070"></div>
+          <div><label class="muted" style="font-size:12px">出版商</label><input type="text" id="e-publisher"></div>
+          <div><label class="muted" style="font-size:12px">官网</label><input type="text" id="e-url"></div>
+          <div><label class="muted" style="font-size:12px">学科（用、或 | 分隔）</label><input type="text" id="e-subjects"></div>
+          <div><label class="muted" style="font-size:12px">关键词（用、或 | 分隔）</label><input type="text" id="e-keywords"></div>
+          <div><label class="muted" style="font-size:12px">数据来源名称</label><input type="text" id="e-source"></div>
+          <div><label class="muted" style="font-size:12px">数据来源链接</label><input type="text" id="e-source-url"></div>
+        </div>
+        <div class="checkbox-row" style="margin-top:10px">
+          <input type="checkbox" id="e-demo">
+          <label for="e-demo" class="muted" style="font-size:13px">标记为演示数据（不会作为真实指标展示给普通用户检索结果）</label>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn" id="btn-save">保存期刊</button>
+          <button class="btn btn-secondary" id="btn-clear">清空表单</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3>当前期刊的指标与分区 <span class="muted" id="cur-id" style="font-size:13px"></span></h3>
+        <p class="muted" style="font-size:13px">先在左侧列表点「编辑」选中期刊，再在此新增/删除记录。每条记录都必须有年份与来源。</p>
+        <div id="cur-records"><p class="muted">尚未选择期刊。</p></div>
+
+        <h4 style="margin-top:16px">新增影响因子</h4>
+        <div class="form-grid">
+          <div><label class="muted" style="font-size:12px">指标年份 *</label><input type="text" id="m-year" placeholder="2024"></div>
+          <div><label class="muted" style="font-size:12px">影响因子 *</label><input type="text" id="m-value" placeholder="4.250"></div>
+          <div><label class="muted" style="font-size:12px">指标类型</label>
+            <select id="m-type">
+              <option value="impact_factor">影响因子（impact_factor）</option>
+              <option value="cite_score">CiteScore</option>
+              <option value="other">其他</option>
+            </select></div>
+          <div><label class="muted" style="font-size:12px">核验状态</label>
+            <select id="m-status">
+              <option value="verified">已核验</option>
+              <option value="unverified">未核验</option>
+              <option value="outdated">已过期</option>
+            </select></div>
+          <div><label class="muted" style="font-size:12px">来源名称</label><input type="text" id="m-source"></div>
+          <div><label class="muted" style="font-size:12px">来源链接</label><input type="text" id="m-source-url"></div>
+        </div>
+        <div class="btn-row" style="margin-top:10px"><button class="btn" id="btn-save-metric">保存指标</button></div>
+
+        <h4 style="margin-top:16px">新增分区</h4>
+        <div class="form-grid">
+          <div><label class="muted" style="font-size:12px">分区体系 *</label>
+            <select id="q-system"><option value="JCR">JCR</option><option value="CAS">中科院</option></select></div>
+          <div><label class="muted" style="font-size:12px">年份 *</label><input type="text" id="q-year" placeholder="2024"></div>
+          <div><label class="muted" style="font-size:12px">学科类别 *</label><input type="text" id="q-cat" placeholder="MANAGEMENT"></div>
+          <div><label class="muted" style="font-size:12px">分区 *</label>
+            <select id="q-quartile"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
+          <div><label class="muted" style="font-size:12px">排名</label><input type="text" id="q-rank"></div>
+          <div><label class="muted" style="font-size:12px">该类别期刊总数</label><input type="text" id="q-total"></div>
+          <div><label class="muted" style="font-size:12px">来源名称</label><input type="text" id="q-source"></div>
+          <div><label class="muted" style="font-size:12px">来源链接</label><input type="text" id="q-source-url"></div>
+        </div>
+        <div class="btn-row" style="margin-top:10px"><button class="btn" id="btn-save-quartile">保存分区</button></div>
+      </div>
+    </div>
+
+    <!-- ============ CSV 导入 ============ -->
+    <div id="tab-import" class="hidden">
+      <div class="card" style="margin-top:16px">
+        <h3>1. 下载模板</h3>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="tpl-journals">期刊基础信息模板（journals）</button>
+          <button class="btn btn-secondary" id="tpl-metrics">年度指标与分区模板（metrics）</button>
+        </div>
+        <p class="muted" style="font-size:12px;margin-top:8px">模板为 UTF-8 带 BOM 的 CSV，可直接用 Excel 打开。示例行标注为演示数据，导入前请删除。</p>
+
+        <h3 style="margin-top:18px">2. 选择文件并预览</h3>
+        <div class="form-grid">
+          <div><label class="muted" style="font-size:12px">导入类型</label>
+            <select id="imp-type">
+              <option value="journals">期刊基础信息</option>
+              <option value="metrics">年度指标与分区</option>
+            </select></div>
+          <div><label class="muted" style="font-size:12px">CSV 文件</label><input type="file" id="imp-file" accept=".csv,text/csv"></div>
+        </div>
+        <div class="msg" id="imp-msg"></div>
+        <div id="imp-preview"></div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn" id="btn-import" disabled>确认导入</button>
+          <button class="btn btn-secondary" id="btn-repreview" disabled>重新校验</button>
+        </div>
+      </div>
+      <div id="imp-result"></div>
+    </div>
+
+    <!-- ============ 导入历史 ============ -->
+    <div id="tab-logs" class="hidden">
+      <div class="card" style="margin-top:16px">
+        <h3>导入历史</h3>
+        <div class="btn-row"><button class="btn btn-secondary" id="btn-reload-logs">刷新</button></div>
+        <div id="logs" style="margin-top:10px"><p class="muted">加载中…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">科研互助平台 · 期刊数据管理</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var PAGE_SIZE = 10;
+var page = 1;
+var currentId = null;
+var parsed = null;   // { type, fileName, rows }
+
+function q(id) { return document.getElementById(id); }
+function esc(s) { return APP.escapeHtml(s); }
+
+APP.initPage('admin-journals').then(function (ctx) {
+  if (!ctx.session || !ctx.isAdmin) {
+    q('deny').classList.remove('hidden');
+    return;
+  }
+  q('main').classList.remove('hidden');
+  bindTabs();
+  loadList();
+  loadLogs();
+});
+
+function bindTabs() {
+  document.querySelectorAll('[data-tab]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      ['list', 'edit', 'import', 'logs'].forEach(function (t) {
+        q('tab-' + t).classList.add('hidden');
+      });
+      q('tab-' + b.getAttribute('data-tab')).classList.remove('hidden');
+    });
+  });
+}
+
+// ---------------- 列表 ----------------
+function loadList() {
+  APP.adminJournalList(q('kw').value.trim(), PAGE_SIZE, (page - 1) * PAGE_SIZE).then(function (d) {
+    var rows = d.rows || [];
+    var total = d.total || 0;
+    var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    q('list-info').textContent = '共 ' + total + ' 本期刊';
+    q('page-info').textContent = '第 ' + page + ' / ' + pages + ' 页';
+    q('prev').disabled = page <= 1;
+    q('next').disabled = page >= pages;
+    if (!rows.length) { q('list').innerHTML = '<div class="card"><p class="muted">没有匹配的期刊。</p></div>'; return; }
+    q('list').innerHTML = '<div class="card"><table class="tbl"><thead><tr>' +
+      '<th>刊名</th><th>ISSN</th><th>出版商</th><th>指标</th><th>分区</th><th>更新时间</th><th>操作</th>' +
+      '</tr></thead><tbody>' + rows.map(function (r) {
+        return '<tr><td>' + esc(r.title) + (r.is_demo ? ' <span class="badge" style="background:#f59e0b">演示</span>' : '') +
+          (r.chinese_name ? '<div class="muted" style="font-size:12px">' + esc(r.chinese_name) + '</div>' : '') + '</td>' +
+          '<td>' + esc(r.issn || '—') + (r.eissn ? '<div class="muted" style="font-size:12px">' + esc(r.eissn) + '</div>' : '') + '</td>' +
+          '<td>' + esc(r.publisher || '—') + '</td>' +
+          '<td>' + r.metric_count + '</td><td>' + r.quartile_count + '</td>' +
+          '<td>' + APP.fmtTime(r.updated_at) + '</td>' +
+          '<td><a href="#" data-edit="' + r.id + '">编辑</a> · <a href="journal-detail.html?id=' + r.id + '" target="_blank">查看</a></td></tr>';
+      }).join('') + '</tbody></table></div>';
+    document.querySelectorAll('[data-edit]').forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); editJournal(a.getAttribute('data-edit')); });
+    });
+  }).catch(function (err) {
+    APP.showMsg(q('msg'), '加载失败：' + (err.message || '未知错误'), 'error');
+  });
+}
+
+// ---------------- 编辑 ----------------
+function editJournal(id) {
+  APP.journalDetail(id).then(function (d) {
+    var j = d.journal || {};
+    currentId = j.id;
+    q('edit-title').textContent = '编辑期刊（#' + j.id + '）';
+    q('e-id').value = j.id;
+    q('e-title').value = j.title || '';
+    q('e-cn').value = j.chinese_name || '';
+    q('e-issn').value = j.issn || '';
+    q('e-eissn').value = j.eissn || '';
+    q('e-publisher').value = j.publisher || '';
+    q('e-url').value = j.official_url || '';
+    q('e-subjects').value = (j.subjects || []).join('、');
+    q('e-keywords').value = (j.keywords || []).join('、');
+    q('e-source').value = j.source_name || '';
+    q('e-source-url').value = j.source_url || '';
+    q('e-demo').checked = !!j.is_demo;
+    q('cur-id').textContent = '（#' + j.id + ' ' + (j.title || '') + '）';
+    renderRecords(d);
+    ['list', 'edit', 'import', 'logs'].forEach(function (t) { q('tab-' + t).classList.add('hidden'); });
+    q('tab-edit').classList.remove('hidden');
+    window.scrollTo(0, 0);
+  }).catch(function (err) { APP.showMsg(q('msg'), '读取期刊失败：' + err.message, 'error'); });
+}
+
+function statusText(s) {
+  return ({ verified: '已核验', unverified: '未核验', demo: '演示数据', outdated: '已过期' })[s] || s;
+}
+
+function renderRecords(d) {
+  var m = d.metrics || [], jcr = d.jcr || [], cas = d.cas || [];
+  if (!m.length && !jcr.length && !cas.length) {
+    q('cur-records').innerHTML = '<p class="muted">该期刊暂无任何指标或分区记录。</p>';
+    return;
+  }
+  var html = '';
+  if (m.length) {
+    html += '<table class="tbl"><thead><tr><th>类型</th><th>年份</th><th>数值</th><th>来源</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
+      m.map(function (x) {
+        return '<tr><td>' + esc(x.metric_type) + '</td><td>' + x.year + '</td><td>' + x.value + '</td>' +
+          '<td>' + esc(x.source_name || '—') + '</td><td>' + statusText(x.verification_status) + '</td>' +
+          '<td><a href="#" data-del="metric" data-id="' + x.id + '">删除</a></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  [['JCR', jcr], ['中科院', cas]].forEach(function (pair) {
+    if (!pair[1].length) return;
+    html += '<h4 style="margin-top:12px">' + pair[0] + ' 分区</h4><table class="tbl"><thead><tr>' +
+      '<th>年份</th><th>学科</th><th>分区</th><th>排名</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
+      pair[1].map(function (x) {
+        return '<tr><td>' + x.year + '</td><td>' + esc(x.subject_category || '—') + '</td><td>' + esc(x.quartile) + '</td>' +
+          '<td>' + (x.rank_position || '—') + (x.total_journals ? '/' + x.total_journals : '') + '</td>' +
+          '<td>' + statusText(x.verification_status) + '</td>' +
+          '<td><a href="#" data-del="quartile" data-id="' + x.id + '">删除</a></td></tr>';
+      }).join('') + '</tbody></table>';
+  });
+  q('cur-records').innerHTML = html;
+  document.querySelectorAll('[data-del]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (!confirm('确认删除这条记录？删除后不可恢复。')) return;
+      APP.adminJournalDelete(a.getAttribute('data-del'), a.getAttribute('data-id')).then(function () {
+        APP.showMsg(q('msg'), '已删除。', 'success');
+        editJournal(currentId);
+      }).catch(function (err) { APP.showMsg(q('msg'), '删除失败：' + err.message, 'error'); });
+    });
+  });
+}
+
+q('btn-search').addEventListener('click', function () { page = 1; loadList(); });
+q('kw').addEventListener('keydown', function (e) { if (e.key === 'Enter') { page = 1; loadList(); } });
+q('prev').addEventListener('click', function () { if (page > 1) { page--; loadList(); } });
+q('next').addEventListener('click', function () { page++; loadList(); });
+q('btn-new').addEventListener('click', function () {
+  currentId = null;
+  ['e-id', 'e-title', 'e-cn', 'e-issn', 'e-eissn', 'e-publisher', 'e-url', 'e-subjects', 'e-keywords', 'e-source', 'e-source-url'].forEach(function (id) { q(id).value = ''; });
+  q('e-demo').checked = false;
+  q('edit-title').textContent = '新增期刊';
+  q('cur-id').textContent = '（保存后自动带入）';
+  q('cur-records').innerHTML = '<p class="muted">保存期刊后即可添加指标。</p>';
+  ['list', 'edit', 'import', 'logs'].forEach(function (t) { q('tab-' + t).classList.add('hidden'); });
+  q('tab-edit').classList.remove('hidden');
+});
+q('btn-clear').addEventListener('click', function () { q('btn-new').click(); });
+
+q('btn-save').addEventListener('click', function () {
+  var payload = {
+    id: q('e-id').value || null,
+    title: q('e-title').value.trim(),
+    chinese_name: q('e-cn').value.trim(),
+    issn: q('e-issn').value.trim(),
+    eissn: q('e-eissn').value.trim(),
+    publisher: q('e-publisher').value.trim(),
+    official_url: q('e-url').value.trim(),
+    subjects: q('e-subjects').value.trim(),
+    keywords: q('e-keywords').value.trim(),
+    source_name: q('e-source').value.trim(),
+    source_url: q('e-source-url').value.trim(),
+    is_demo: q('e-demo').checked
+  };
+  if (!payload.title) { APP.showMsg(q('msg'), '英文刊名必填。', 'error'); return; }
+  APP.adminJournalSaveJournal(payload).then(function (r) {
+    if (r && r.ok === false) { APP.showMsg(q('msg'), '保存失败：' + (r.error || '') + (r.detail ? ' ' + r.detail : ''), 'error'); return; }
+    APP.showMsg(q('msg'), '已保存（#' + (r.id || payload.id) + '）。', 'success');
+    currentId = r.id;
+    q('e-id').value = r.id;
+    q('cur-id').textContent = '（#' + r.id + '）';
+    loadList();
+  }).catch(function (err) { APP.showMsg(q('msg'), '保存失败：' + err.message, 'error'); });
+});
+
+q('btn-save-metric').addEventListener('click', function () {
+  if (!currentId) { APP.showMsg(q('msg'), '请先在列表中选中期刊。', 'error'); return; }
+  APP.adminJournalSaveMetric({
+    journal_id: currentId,
+    metric_year: q('m-year').value.trim(),
+    metric_value: q('m-value').value.trim(),
+    metric_type: q('m-type').value,
+    verification_status: q('m-status').value,
+    source_name: q('m-source').value.trim(),
+    source_url: q('m-source-url').value.trim()
+  }).then(function (r) {
+    if (r && r.ok === false) { APP.showMsg(q('msg'), '保存失败：' + r.error, 'error'); return; }
+    APP.showMsg(q('msg'), '指标已保存。', 'success');
+    q('m-year').value = ''; q('m-value').value = '';
+    editJournal(currentId);
+  }).catch(function (err) { APP.showMsg(q('msg'), '保存失败：' + err.message, 'error'); });
+});
+
+q('btn-save-quartile').addEventListener('click', function () {
+  if (!currentId) { APP.showMsg(q('msg'), '请先在列表中选中期刊。', 'error'); return; }
+  APP.adminJournalSaveQuartile({
+    journal_id: currentId,
+    ranking_system: q('q-system').value,
+    ranking_year: q('q-year').value.trim(),
+    subject_category: q('q-cat').value.trim(),
+    quartile: q('q-quartile').value,
+    rank_position: q('q-rank').value.trim(),
+    total_journals: q('q-total').value.trim(),
+    source_name: q('q-source').value.trim(),
+    source_url: q('q-source-url').value.trim()
+  }).then(function (r) {
+    if (r && r.ok === false) { APP.showMsg(q('msg'), '保存失败：' + r.error, 'error'); return; }
+    APP.showMsg(q('msg'), '分区已保存。', 'success');
+    editJournal(currentId);
+  }).catch(function (err) { APP.showMsg(q('msg'), '保存失败：' + err.message, 'error'); });
+});
+
+// ---------------- CSV 模板 ----------------
+var TPL_JOURNALS = ['title', 'chinese_name', 'issn', 'eissn', 'publisher', 'official_url', 'subjects', 'keywords', 'source_name', 'source_url', 'is_demo'];
+var TPL_METRICS = ['journal_ref', 'record_type', 'year', 'metric_type', 'metric_value', 'subject_category', 'quartile', 'rank_position', 'total_journals', 'source_name', 'source_url', 'verification_status'];
+
+q('tpl-journals').addEventListener('click', function () {
+  APP.downloadText('期刊基础信息模板.csv', APP.toCsv(TPL_JOURNALS, [{
+    title: '示例期刊（Example Journal，请删除本行）',
+    chinese_name: '示例期刊',
+    issn: '1234-5679', eissn: '1234-5687',
+    publisher: '示例出版社',
+    official_url: 'https://example.org/journal',
+    subjects: '管理科学|信息管理',
+    keywords: '示例|演示',
+    source_name: '演示数据源', source_url: 'https://example.org/source',
+    is_demo: 'true'
+  }]));
+});
+
+q('tpl-metrics').addEventListener('click', function () {
+  APP.downloadText('年度指标与分区模板.csv', APP.toCsv(TPL_METRICS, [
+    { journal_ref: '1234-5679（可填 ISSN 或完整刊名）', record_type: 'metric', year: '2024', metric_type: 'impact_factor', metric_value: '4.250', subject_category: '', quartile: '', rank_position: '', total_journals: '', source_name: '演示数据源', source_url: 'https://example.org/source', verification_status: 'demo' },
+    { journal_ref: '1234-5679', record_type: 'jcr', year: '2024', metric_type: '', metric_value: '', subject_category: 'MANAGEMENT', quartile: 'Q1', rank_position: '12', total_journals: '220', source_name: '演示数据源', source_url: 'https://example.org/source', verification_status: 'demo' },
+    { journal_ref: '1234-5679', record_type: 'cas', year: '2023', metric_type: '', metric_value: '', subject_category: '管理科学', quartile: 'Q3', rank_position: '', total_journals: '', source_name: '演示数据源', source_url: 'https://example.org/source', verification_status: 'demo' }
+  ]));
+});
+
+// ---------------- 文件预览与导入 ----------------
+q('imp-file').addEventListener('change', function (e) {
+  var f = e.target.files && e.target.files[0];
+  if (!f) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    var res;
+    try { res = APP.parseCsv(reader.result); } catch (err) { APP.showMsg(q('imp-msg'), 'CSV 解析失败：' + err.message, 'error'); return; }
+    if (!res.rows.length) { APP.showMsg(q('imp-msg'), '文件里没有数据行。', 'error'); return; }
+    parsed = { type: q('imp-type').value, fileName: f.name, rows: res.rows, headers: res.headers };
+    preview();
+  };
+  reader.readAsText(f, 'utf-8');
+});
+
+q('imp-type').addEventListener('change', function () { if (parsed) { parsed.type = q('imp-type').value; preview(); } });
+q('btn-repreview').addEventListener('click', preview);
+
+function expectedHeaders(type) { return type === 'journals' ? TPL_JOURNALS : TPL_METRICS; }
+
+function preview() {
+  if (!parsed) return;
+  var need = expectedHeaders(parsed.type);
+  var missing = need.filter(function (h) { return parsed.headers.indexOf(h) === -1; });
+  var extra = parsed.headers.filter(function (h) { return need.indexOf(h) === -1; });
+  APP.showMsg(q('imp-msg'), '', 'info');
+  APP.journalImport(parsed.type, parsed.fileName, parsed.rows, true).then(function (r) {
+    var head = '<div class="card" style="margin-top:12px"><h3>3. 校验结果（尚未写入）</h3>' +
+      '<p class="muted" style="font-size:13px">文件：' + esc(parsed.fileName) + ' · 类型：' + (parsed.type === 'journals' ? '期刊基础信息' : '年度指标与分区') +
+      ' · 数据行：' + parsed.rows.length + '</p>' +
+      (missing.length ? '<p class="msg error" style="display:block">缺少必需列：' + esc(missing.join('、')) + '，导入会被逐行拒绝。</p>' : '') +
+      (extra.length ? '<p class="muted" style="font-size:12px">未识别的列（会被忽略）：' + esc(extra.join('、')) + '</p>' : '') +
+      '<table class="tbl"><thead><tr><th>新增</th><th>更新</th><th>跳过（内容相同）</th><th>失败</th></tr></thead>' +
+      '<tbody><tr><td>' + r.inserted + '</td><td>' + r.updated + '</td><td>' + r.skipped + '</td><td>' + r.failed + '</td></tr></tbody></table>';
+    if (r.failed && r.failures && r.failures.length) {
+      head += '<h4 style="margin-top:12px">失败明细</h4><table class="tbl"><thead><tr><th>行号</th><th>定位键</th><th>原因</th></tr></thead><tbody>' +
+        r.failures.slice(0, 50).map(function (f) {
+          return '<tr><td>' + f.row + '</td><td>' + esc(f.key || '') + '</td><td>' + esc(f.error) + '</td></tr>';
+        }).join('') + '</tbody></table>' +
+        (r.failures.length > 50 ? '<p class="muted" style="font-size:12px">仅显示前 50 条。</p>' : '') +
+        '<div class="btn-row" style="margin-top:8px"><button class="btn btn-secondary" id="btn-dl-fail-preview">下载失败清单</button></div>';
+    }
+    head += '</div>';
+    q('imp-preview').innerHTML = head;
+    var hasWritable = (r.inserted + r.updated) > 0;
+    q('btn-import').disabled = !hasWritable;
+    q('btn-repreview').disabled = false;
+    var dl = q('btn-dl-fail-preview');
+    if (dl) dl.addEventListener('click', function () { downloadFailures(r.failures); });
+  }).catch(function (err) {
+    APP.showMsg(q('imp-msg'), '校验失败：' + (err.message || '未知错误'), 'error');
+    q('imp-preview').innerHTML = '';
+    q('btn-import').disabled = true;
+  });
+}
+
+function downloadFailures(list) {
+  var rows = (list || []).map(function (f) {
+    return { row: f.row, key: f.key || '', error: f.error, raw: JSON.stringify(f.raw || {}) };
+  });
+  APP.downloadText('导入失败清单.csv', APP.toCsv(['row', 'key', 'error', 'raw'], rows));
+}
+
+q('btn-import').addEventListener('click', function () {
+  if (!parsed) return;
+  q('btn-import').disabled = true;
+  APP.journalImport(parsed.type, parsed.fileName, parsed.rows, false).then(function (r) {
+    var html = '<div class="card" style="margin-top:16px"><h3>导入完成</h3>' +
+      '<div class="field-row"><span class="k">任务编号</span><span>#' + (r.job_id || '—') + '</span></div>' +
+      '<div class="field-row"><span class="k">总行数</span><span>' + r.total + '</span></div>' +
+      '<div class="field-row"><span class="k">新增</span><span>' + r.inserted + '</span></div>' +
+      '<div class="field-row"><span class="k">更新</span><span>' + r.updated + '</span></div>' +
+      '<div class="field-row"><span class="k">跳过（内容相同）</span><span>' + r.skipped + '</span></div>' +
+      '<div class="field-row"><span class="k">失败</span><span>' + r.failed + '</span></div>';
+    if (r.failed && r.failures && r.failures.length) {
+      html += '<div class="btn-row" style="margin-top:10px"><button class="btn btn-secondary" id="btn-dl-fail">下载失败清单</button></div>';
+    }
+    html += '</div>';
+    q('imp-result').innerHTML = html;
+    var dl = q('btn-dl-fail');
+    if (dl) dl.addEventListener('click', function () { downloadFailures(r.failures); });
+    loadLogs();
+    loadList();
+    APP.showMsg(q('imp-msg'), '导入已提交，结果见下方。', 'success');
+  }).catch(function (err) {
+    APP.showMsg(q('imp-msg'), '导入失败：' + (err.message || '未知错误'), 'error');
+    q('btn-import').disabled = false;
+  });
+});
+
+// ---------------- 导入历史 ----------------
+function loadLogs() {
+  APP.journalImportLogs(20).then(function (d) {
+    var rows = d.rows || [];
+    if (!rows.length) { q('logs').innerHTML = '<p class="muted">暂无导入记录。</p>'; return; }
+    q('logs').innerHTML = '<table class="tbl"><thead><tr><th>#</th><th>类型</th><th>文件</th><th>操作人</th><th>状态</th>' +
+      '<th>总/新增/更新/跳过/失败</th><th>开始</th><th>结束</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        return '<tr><td>' + r.id + '</td><td>' + (r.import_type === 'journals' ? '基础信息' : '指标分区') + '</td>' +
+          '<td>' + esc(r.file_name || '—') + '</td><td>' + esc(r.operator_name || '—') + '</td>' +
+          '<td>' + ({ success: '成功', partial: '部分成功', failed: '失败', running: '进行中' })[r.status] + '</td>' +
+          '<td>' + r.total_rows + ' / ' + r.inserted_count + ' / ' + r.updated_count + ' / ' + r.skipped_count + ' / ' + r.failed_count + '</td>' +
+          '<td>' + APP.fmtTime(r.started_at) + '</td><td>' + (r.finished_at ? APP.fmtTime(r.finished_at) : '—') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }).catch(function (err) { q('logs').innerHTML = '<p class="muted">加载失败：' + esc(err.message) + '</p>'; });
+}
+q('btn-reload-logs').addEventListener('click', loadLogs);
+</script>
+</body>
+</html>

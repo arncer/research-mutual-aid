@@ -1,0 +1,45 @@
+# ============================================================================
+# 科研互助平台 · 依赖清单
+# ----------------------------------------------------------------------------
+# 说明：本项目是 Node.js 应用（不是 Python 项目），因此不存在 pip 依赖。
+#       第三方依赖数量为 0 —— 服务端与前端全部使用运行时内置能力实现，
+#       无需 npm install 即可直接运行。本文件用于交付/归档时说明依赖情况。
+# ============================================================================
+
+# ---------- 1. 运行时要求 ----------
+# node >= 18.0.0   （用到 fetch、AbortSignal.timeout、String.prototype.replaceAll 等）
+# npm  >= 9.0.0    （仅用于执行 npm start，非必需）
+
+# ---------- 2. 第三方依赖 ----------
+# 无。package.json 中 dependencies / devDependencies 均为空，可执行：
+#   npm install --production    → 不会安装任何包
+# 之所以能做到零依赖，是因为服务端只用 Node 内置模块完成 HTTP、TLS、文件与出站请求。
+
+# ---------- 3. 用到的 Node 内置模块（无需安装） ----------
+node:http              # HTTP 服务与 /api 路由
+node:https             # 访问 Crossref / OpenAlex 等上游元数据接口
+node:net               # SMTP 端口连通性诊断（TCP 握手）
+node:tls               # SMTP 隐式 TLS（465 端口）连接
+node:fs                # 静态文件读取、附件目录
+node:path              # 路径拼接与静态资源白名单校验
+
+# ---------- 4. 前端依赖（全部本地自托管，无 CDN） ----------
+# assets/workbuddy-cloud-sdk.js   云端数据库 / 认证 / 存储 SDK（随包提供）
+# assets/app.js                   业务前端逻辑
+# assets/doi-core.js              DOI 解析与文献元数据归一化
+# assets/style.css                样式
+# 注意：早期版本曾引用外部 CDN，现全部改为本地 assets/ 自托管，离线可用。
+
+# ---------- 5. 平台侧依赖（非 npm 包，需账号与凭据） ----------
+# WorkBuddy 托管云服务（数据库 PostgreSQL / 用户认证 / 对象存储）
+#   - 通过请求头 x-wb-webapp-access-key 携带 publishable key 访问
+#   - 数据库访问路径：/.cloud/database/rest/v1/...
+# Crossref API        https://api.crossref.org   （DOI 元数据查询，公开接口）
+# OpenAlex API        https://api.openalex.org   （补充元数据，公开接口）
+# SMTP 服务商         （可选，用于邮件提醒；未配置时站内通知照常工作）
+
+# ---------- 6. 校验方式 ----------
+# node --check server.js
+# node --check email-sender.js
+# node --check assets/app.js
+# npm start            （默认端口 3000，可用 PORT 环境变量覆盖）

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>论文查询 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div class="card">
+    <h2>论文 DOI 查询</h2>
+    <p class="muted">支持输入 DOI（如 10.1038/nature12373）或完整 DOI 链接（如 https://doi.org/10.1038/nature12373 、doi:10.1038/nature12373），系统会自动规范化后再查询。</p>
+    <div class="doi-search">
+      <input type="text" id="doi-input" placeholder="输入 DOI 或 DOI 链接">
+      <button class="btn" id="doi-go" style="margin-top:0">查询</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="oa-block" style="margin-top:12px">
+      <p class="oa-tip" style="margin-top:0">温馨提示：如果暂时没有 DOI，也可以手动填写论文信息。建议尽可能补充论文标题、作者、期刊名称、出版年份及卷期页码等信息。信息越完整，应助人就越容易准确识别论文，并判断所在院校是否订阅了相关期刊，帮助也会更高效。</p>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn btn-secondary" id="toggle-manual">没有 DOI？手动填写论文信息</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="form-card">
+    <h2 id="form-title">论文信息</h2>
+    <p class="muted" id="form-hint">请核对下列信息，可修改或补充后保存。带 * 为必填。</p>
+
+    <label for="f_title">论文标题 *</label>
+    <input type="text" id="f_title" placeholder="论文完整标题">
+
+    <label for="f_authors">作者姓名（选填，建议填写）</label>
+    <input type="text" id="f_authors" placeholder="如：Kucsko G., Maurer P. C., Lukin M. D.">
+
+    <label for="f_journal">期刊名称（选填，重点字段）</label>
+    <input type="text" id="f_journal" placeholder="如：Nature">
+
+    <label for="f_journal_type">期刊类型 / 学科类别（选填）</label>
+    <input type="text" id="f_journal_type" placeholder="如：SCI 期刊 · 物理 / 材料科学">
+
+    <label for="f_year">出版年份（选填）</label>
+    <input type="text" id="f_year" placeholder="如：2013">
+
+    <div class="form-grid">
+      <div>
+        <label for="f_volume">卷号（选填）</label>
+        <input type="text" id="f_volume" placeholder="如：500">
+      </div>
+      <div>
+        <label for="f_issue">期号（选填）</label>
+        <input type="text" id="f_issue" placeholder="如：7461">
+      </div>
+      <div>
+        <label for="f_pages">起止页码（选填）</label>
+        <input type="text" id="f_pages" placeholder="如：54-58">
+      </div>
+    </div>
+
+    <label for="f_publisher">出版社（选填）</label>
+    <input type="text" id="f_publisher" placeholder="如：Springer Nature">
+
+    <label for="f_issn">ISSN（选填）</label>
+    <input type="text" id="f_issn" placeholder="如：0028-0836">
+
+    <label for="f_doi">DOI（选填）</label>
+    <input type="text" id="f_doi" placeholder="如：10.1038/nature12373，没有可留空">
+
+    <label for="f_source">论文官方页面 / 可公开访问的来源链接（选填）</label>
+    <input type="text" id="f_source" placeholder="如出版社页面、机构知识库、arXiv 链接">
+
+    <div class="btn-row">
+      <button class="btn" id="save-btn">保存论文信息并查重</button>
+    </div>
+    <div class="msg" id="form-msg"></div>
+  </div>
+
+  <div class="card hidden" id="result-card">
+    <h2>历史求助查重结果</h2>
+    <div id="history"></div>
+    <div class="btn-row">
+      <a class="btn" id="publish-btn" href="#">针对此论文发布求助</a>
+      <a class="btn btn-secondary" id="back-square" href="square.html">看看互助广场已有求助</a>
+    </div>
+  </div>
+
+  <div class="footer">科研互助平台 · 论文查询</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/doi-core.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var input = document.getElementById('doi-input');
+var msg = document.getElementById('msg');
+var formMsg = document.getElementById('form-msg');
+var formCard = document.getElementById('form-card');
+var resultCard = document.getElementById('result-card');
+var savedPaper = null;
+
+APP.initPage('paper');
+
+// 手动填写入口
+document.getElementById('toggle-manual').addEventListener('click', function () {
+  formCard.classList.toggle('hidden');
+  resultCard.classList.add('hidden');
+  document.getElementById('form-title').textContent = '手动填写论文信息（无需 DOI）';
+  document.getElementById('form-hint').textContent = '不要求提供 DOI，请尽可能填写完整。带 * 为必填。';
+  if (!formCard.classList.contains('hidden')) {
+    formCard.scrollIntoView({ behavior: 'smooth' });
+  }
+});
+
+// ---- 表单读写 ----
+function fillForm(p, note) {
+  document.getElementById('f_title').value = p.title || '';
+  document.getElementById('f_authors').value = p.authors || '';
+  document.getElementById('f_journal').value = p.journal || '';
+  document.getElementById('f_journal_type').value = p.journal_type || '';
+  document.getElementById('f_year').value = p.published_year || '';
+  document.getElementById('f_volume').value = p.volume || '';
+  document.getElementById('f_issue').value = p.issue || '';
+  document.getElementById('f_pages').value = p.pages || '';
+  document.getElementById('f_publisher').value = p.publisher || '';
+  document.getElementById('f_issn').value = p.issn || '';
+  document.getElementById('f_doi').value = p.doi || '';
+  document.getElementById('f_source').value = p.source_url || p.doi_url || '';
+  formCard.classList.remove('hidden');
+  document.getElementById('form-title').textContent = '论文信息（可修改补充）';
+  document.getElementById('form-hint').textContent = note || '已自动填入查询到的元数据，请核对、修改或补充后保存。带 * 为必填。';
+  resultCard.classList.add('hidden');
+}
+
+function readForm() {
+  var yearRaw = document.getElementById('f_year').value.trim();
+  var year = yearRaw ? parseInt(yearRaw, 10) : null;
+  var doiRaw = document.getElementById('f_doi').value.trim();
+  var doi = doiRaw ? APP.normalizeDoi(doiRaw) : null;
+  return {
+    title: document.getElementById('f_title').value.trim(),
+    authors: document.getElementById('f_authors').value.trim(),
+    journal: document.getElementById('f_journal').value.trim(),
+    journal_type: document.getElementById('f_journal_type').value.trim(),
+    published_year: year,
+    volume: document.getElementById('f_volume').value.trim(),
+    issue: document.getElementById('f_issue').value.trim(),
+    pages: document.getElementById('f_pages').value.trim(),
+    publisher: document.getElementById('f_publisher').value.trim(),
+    issn: document.getElementById('f_issn').value.trim(),
+    doi: doi,
+    source_url: document.getElementById('f_source').value.trim(),
+    doi_url: doi ? 'https://doi.org/' + doi : null
+  };
+}
+
+function renderHistory(res) {
+  var box = document.getElementById('history');
+  var html = '';
+
+  if (res.by === 'none') {
+    html += '<div class="msg warn">信息不足，无法可靠判断是否重复：当前既没有 DOI，也没有论文标题。建议至少填写论文标题后再查重。</div>';
+  } else if (res.exact.length === 0 && res.possible.length === 0) {
+    html += '<p class="muted">' + (res.by === 'doi' ? '未发现相同 DOI 的历史求助。' : '未发现标题或期刊信息相近的历史求助。') + '</p>';
+  } else {
+    if (res.exact.length) {
+      html += '<div class="msg warn"><strong>查重提醒：</strong>发现 ' + res.exact.length + ' 条很可能重复的历史求助' +
+        (res.by === 'doi' ? '（相同 DOI）' : '（标题一致）') + '，建议先查看已有求助，避免重复发布。</div>';
+      html += listItems(res.exact);
+    }
+    if (res.possible.length) {
+      html += '<div class="msg info"><strong>可能存在重复：</strong>以下 ' + res.possible.length + ' 条求助的标题或「期刊 + 年份」相近，请确认是否为同一篇论文。</div>';
+      html += listItems(res.possible);
+    }
+  }
+
+  if (savedPaper) {
+    html += '<h3 style="margin:14px 0 6px">该论文信息</h3>' + APP.paperMetaRows(savedPaper);
+  }
+  box.innerHTML = html;
+  resultCard.classList.remove('hidden');
+}
+
+function listItems(list) {
+  return list.map(function (it) {
+    return '<div class="req-item"><h3><a href="request.html?id=' + it.id + '" target="_blank">求助 #' + it.id + '：' + APP.escapeHtml(it.paper_title || it.doi || '（无标题）') + '</a></h3>' +
+      '<div>' + APP.statusBadge(it.status) + '</div>' +
+      '<div class="meta"><span>发布者：' + APP.escapeHtml(it.owner_name || '匿名用户') + '</span><span>发布时间：' + APP.fmtTime(it.created_at) + '</span>' +
+      '<span><a href="request.html?id=' + it.id + '" target="_blank">查看详情 →</a></span></div></div>';
+  }).join('');
+}
+
+// ---- DOI 查询：本地库优先 → 外部多来源（按注册机构路由）----
+var SOURCE_NAME = { crossref: 'Crossref', datacite: 'DataCite', openalex: 'OpenAlex', doicn: 'doi.org 内容协商' };
+
+function doQuery(rawInput) {
+  var doi = APP.normalizeDoi(rawInput);
+  resultCard.classList.add('hidden');
+  if (!rawInput || !String(rawInput).trim()) {
+    APP.showMsg(msg, '请输入 DOI 后再查询。如果没有 DOI，请点击「没有 DOI？手动填写论文信息」。', 'error');
+    return;
+  }
+  if (!doi) {
+    APP.showMsg(msg, 'DOI 格式不正确：有效 DOI 形如 10.xxxx/xxxxx（支持粘贴 doi: 前缀或 doi.org 链接，系统会自动规范化）。如果没有 DOI，请点击「没有 DOI？手动填写论文信息」。', 'error');
+    return;
+  }
+  APP.showMsg(msg, '正在查询（先查本地论文库，再查外部文献服务），请稍候…', 'info');
+  var t0 = Date.now();
+
+  APP.findLocalPaper(doi).then(function (local) {
+    if (local) {
+      // 本地命中：直接用已有数据填充，不请求外部服务，也不创建重复记录
+      console.debug('[论文查询] 本地命中', 'DOI=' + doi, '来源=' + local.source, '耗时=' + (Date.now() - t0) + 'ms');
+      APP.showMsg(msg, '', 'info');
+      fillForm(local.paper, local.source === 'papers'
+        ? '该论文已在平台论文库中，已填入已有元数据（本地命中，未请求外部服务），可修改补充后保存。'
+        : '论文库中暂无该记录，但在历史求助中找到了同一 DOI 的论文信息，已填入表单；请核对补充后保存，保存时会自动建立论文库记录。');
+      return null;
+    }
+    // 本地未命中 → 外部多来源查询
+    return APP.fetchPaperMetadata(doi).then(function (res) {
+      console.debug('[论文查询] 外部命中', 'DOI=' + doi, '来源=' + res.source, '部分缺失=' + res.partial, '耗时=' + (Date.now() - t0) + 'ms');
+      APP.showMsg(msg, '', 'info');
+      var note = '本地论文库中没有该论文，已通过 ' + (SOURCE_NAME[res.source] || res.source) + ' 获取到元数据（尚未入库），请核对、修改或补充后保存。';
+      if (res.partial) note += '（已找到论文，部分信息暂未获取，可手动补充。）';
+      fillForm(res.paper, note);
+    });
+  }).catch(function (err) {
+    console.debug('[论文查询] 失败', 'DOI=' + doi, 'kind=' + (err && err.kind), '耗时=' + (Date.now() - t0) + 'ms', err && err.attempts);
+    if (err && err.kind === 'not_found') {
+      APP.showMsg(msg, err.message, 'error');
+    } else if (err && err.kind === 'unavailable') {
+      APP.showMsg(msg, err.message, 'error');
+    } else {
+      APP.showMsg(msg, (err && err.message) || '查询失败，请稍后重试。', 'error');
+    }
+  });
+}
+
+document.getElementById('doi-go').addEventListener('click', function () { doQuery(input.value); });
+input.addEventListener('keydown', function (e) { if (e.key === 'Enter') doQuery(input.value); });
+
+// ---- 保存论文信息并查重 ----
+document.getElementById('save-btn').addEventListener('click', function () {
+  var p = readForm();
+  if (!p.title) { APP.showMsg(formMsg, '请填写论文标题（必填）。', 'error'); return; }
+  if (document.getElementById('f_doi').value.trim() && !p.doi) {
+    APP.showMsg(formMsg, 'DOI 格式不正确，请修正或清空该字段（不会自动生成 DOI）。', 'error');
+    return;
+  }
+  if (p.published_year === null && document.getElementById('f_year').value.trim()) {
+    APP.showMsg(formMsg, '出版年份需为数字。', 'error');
+    return;
+  }
+  var btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  APP.showMsg(formMsg, '正在保存并检查历史求助…', 'info');
+
+  var fromCache = false;
+  var lookup = p.doi ? APP.findPaperByDoi(p.doi) : Promise.resolve(null);
+  lookup.then(function (existing) {
+    if (existing) { fromCache = true; return existing; }
+    return APP.savePaper(p);
+  }).then(function (saved) {
+    savedPaper = saved || p;
+    if (fromCache) {
+      // 用户可能修改了已有论文的信息：合并后展示（不覆盖库中记录的判断交由用户确认）
+      savedPaper = { doi: savedPaper.doi, title: savedPaper.title, authors: p.authors || savedPaper.authors,
+        journal: p.journal || savedPaper.journal, journal_type: p.journal_type || savedPaper.journal_type,
+        published_year: p.published_year || savedPaper.published_year, volume: p.volume || savedPaper.volume,
+        issue: p.issue || savedPaper.issue, pages: p.pages || savedPaper.pages,
+        publisher: p.publisher || savedPaper.publisher, issn: p.issn || savedPaper.issn, source_url: p.source_url || savedPaper.source_url,
+        doi_url: p.doi_url || savedPaper.doi_url };
+    }
+    return APP.findDuplicateRequests(savedPaper);
+  }).then(function (res) {
+    renderHistory(res);
+    document.getElementById('publish-btn').href = 'publish.html?pid=' + (savedPaper.id || '');
+    APP.showMsg(formMsg, fromCache ? '该论文已在论文库中，未重复创建记录。' : '论文信息已保存到论文库。', 'success');
+  }).catch(function (err) {
+    APP.showMsg(formMsg, err.message || '保存失败，请稍后重试。', 'error');
+  }).finally(function () { btn.disabled = false; });
+});
+
+var initial = APP.qs('doi');
+if (initial) { input.value = initial; doQuery(initial); }
+</script>
+</body>
+</html>

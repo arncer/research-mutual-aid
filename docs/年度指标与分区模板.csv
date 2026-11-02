@@ -1,0 +1,4 @@
+﻿journal_ref,record_type,year,metric_type,metric_value,subject_category,quartile,rank_position,total_journals,source_name,source_url,verification_status
+1234-5679,metric,2024,impact_factor,4.250,,,,,示例数据源（请替换为真实来源）,https://example.org/source,demo
+1234-5679,jcr,2024,,,MANAGEMENT,Q1,12,220,示例数据源（请替换为真实来源）,https://example.org/source,demo
+1234-5679,cas,2023,,,管理科学,Q3,,,示例数据源（请替换为真实来源）,https://example.org/source,demo

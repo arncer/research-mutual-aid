@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>期刊详情 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav id="nav"></nav>
+<div class="container">
+  <div id="head"><p class="muted">加载中…</p></div>
+  <div id="body"></div>
+  <div class="footer">科研互助平台 · 期刊数据库</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+APP.initPage('journals');
+
+var STATUS_TEXT = { verified: '已核验', unverified: '未核验', demo: '演示数据', outdated: '已过期' };
+var STATUS_COLOR = { verified: '#16a34a', unverified: '#6b7280', demo: '#f59e0b', outdated: '#b45309' };
+
+function statusBadge(s) {
+  var t = STATUS_TEXT[s] || '未核验';
+  var c = STATUS_COLOR[s] || '#6b7280';
+  return '<span class="badge" style="background:' + c + '">' + t + '</span>';
+}
+
+function esc(s) { return APP.escapeHtml(s); }
+
+function renderHead(j) {
+  var subs = (j.subjects || []).map(function (s) {
+    return '<span class="badge" style="background:#eef2ff;color:#4338ca">' + esc(s) + '</span>';
+  }).join(' ');
+  var html = '';
+  if (j.is_demo) {
+    html += '<div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin-bottom:12px">' +
+      '<b style="color:#b45309">这是演示数据</b>：本期刊及其指标仅用于界面与流程测试，<b>不是真实的影响因子或分区</b>，请勿引用。</div>';
+  }
+  html += '<div class="card">' +
+    '<h2 style="margin:0 0 6px">' + esc(j.title || '（未命名）') + '</h2>' +
+    (j.chinese_name ? '<div class="muted" style="margin-bottom:8px">' + esc(j.chinese_name) + '</div>' : '') +
+    '<div class="field-row"><span class="k">ISSN</span><span>' + (j.issn ? esc(j.issn) : '<em class="muted">未提供</em>') + '</span></div>' +
+    '<div class="field-row"><span class="k">eISSN</span><span>' + (j.eissn ? esc(j.eissn) : '<em class="muted">未提供</em>') + '</span></div>' +
+    (j.alt_issns && j.alt_issns.length ? '<div class="field-row"><span class="k">其他 ISSN</span><span>' + esc(j.alt_issns.join('、')) + '</span></div>' : '') +
+    '<div class="field-row"><span class="k">出版商</span><span>' + (j.publisher ? esc(j.publisher) : '<em class="muted">未提供</em>') + '</span></div>' +
+    (subs ? '<div class="field-row"><span class="k">学科</span><span>' + subs + '</span></div>' : '') +
+    '<div class="field-row"><span class="k">官方网站</span><span>' +
+      (j.official_url ? '<a href="' + esc(j.official_url) + '" target="_blank" rel="noopener noreferrer">' + esc(j.official_url) + '</a>' : '<em class="muted">未提供</em>') +
+    '</span></div>' +
+    '<div class="field-row"><span class="k">数据来源</span><span>' +
+      (j.source_name || j.source_url
+        ? esc(j.source_name || '来源见链接') + (j.source_url ? ' · <a href="' + esc(j.source_url) + '" target="_blank" rel="noopener noreferrer">查看来源</a>' : '')
+        : '<em class="muted">未登记来源</em>') +
+    '</span></div>' +
+    '<div class="btn-row" style="margin-top:12px"><a class="btn btn-secondary" href="journals.html">← 返回检索</a></div>' +
+  '</div>';
+  document.getElementById('head').innerHTML = html;
+}
+
+function renderMetrics(list) {
+  var ifs = (list || []).filter(function (m) { return m.metric_type === 'impact_factor'; });
+  var others = (list || []).filter(function (m) { return m.metric_type !== 'impact_factor'; });
+  if (!ifs.length && !others.length) {
+    return '<div class="card" style="margin-top:16px"><h3>影响因子</h3>' +
+      '<p class="muted">暂无已核验数据。本站不会推断、补全或引用未经授权的数值；如已获得合法数据，可由管理员通过 CSV 导入并标注来源年份。</p></div>';
+  }
+  var rows = ifs.map(function (m) {
+    return '<tr><td>' + m.year + '</td><td><b>' + Number(m.value).toFixed(3) + '</b></td>' +
+      '<td>' + (m.source_name ? esc(m.source_name) : '<em class="muted">未登记</em>') + '</td>' +
+      '<td>' + statusBadge(m.verification_status) + '</td>' +
+      '<td>' + (m.source_url ? '<a href="' + esc(m.source_url) + '" target="_blank" rel="noopener noreferrer">来源</a>' : '—') + '</td></tr>';
+  }).join('');
+  var html = '<div class="card" style="margin-top:16px"><h3>影响因子（按指标年份）</h3>' +
+    '<p class="muted" style="font-size:13px">不同年份独立记录，不覆盖、不插值。仅 metric_type = impact_factor 的记录会出现在这里，CiteScore 等其他指标不会混入。</p>' +
+    '<table class="tbl"><thead><tr><th>指标年份</th><th>影响因子</th><th>数据来源</th><th>核验状态</th><th>链接</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  if (others.length) {
+    html += '<p class="muted" style="font-size:13px;margin-top:10px">另有 ' + others.length + ' 条其他类型指标（如 CiteScore），已单独保存、不计入影响因子。</p>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function quartileTable(title, list, note) {
+  if (!list || !list.length) {
+    return '<div class="card" style="margin-top:16px"><h3>' + title + '</h3>' +
+      '<p class="muted">暂无已核验数据。' + (note || '') + '</p></div>';
+  }
+  // 按年份分组：同一年可以有多个学科类别，各自独立一行
+  var byYear = {};
+  list.forEach(function (q) { (byYear[q.year] = byYear[q.year] || []).push(q); });
+  var years = Object.keys(byYear).map(Number).sort(function (a, b) { return b - a; });
+  var html = '<div class="card" style="margin-top:16px"><h3>' + title + '</h3>' +
+    '<p class="muted" style="font-size:13px">每年每个学科类别独立一条记录；年份即数据所属年度，不代表「最新」。' + (note || '') + '</p>';
+  years.forEach(function (y) {
+    var items = byYear[y];
+    var rows = items.map(function (q) {
+      var color = { Q1: '#dc2626', Q2: '#ea580c', Q3: '#ca8a04', Q4: '#6b7280' }[q.quartile] || '#6b7280';
+      return '<tr><td>' + (q.subject_category ? esc(q.subject_category) : '<em class="muted">未标注</em>') + '</td>' +
+        '<td><span class="badge" style="background:' + color + '">' + esc(q.quartile) + '</span></td>' +
+        '<td>' + (q.rank_position ? '#' + q.rank_position : '—') + (q.total_journals ? ' / ' + q.total_journals : '') + '</td>' +
+        '<td>' + (q.source_name ? esc(q.source_name) : '<em class="muted">未登记</em>') + '</td>' +
+        '<td>' + statusBadge(q.verification_status) + '</td></tr>';
+    }).join('');
+    html += '<h4 style="margin:14px 0 6px">' + y + ' 年' +
+      (items.every(function (q) { return q.verification_status === 'demo'; }) ? ' <span class="badge" style="background:#f59e0b">演示</span>' : '') + '</h4>' +
+      '<table class="tbl"><thead><tr><th>学科类别</th><th>分区</th><th>排名</th><th>来源</th><th>状态</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function render(d) {
+  renderHead(d.journal || {});
+  var html = renderMetrics(d.metrics);
+  html += quartileTable('JCR 分区', d.jcr, 'JCR 分区与影响因子一样按年度发布，本站不会把历史年度分区标为最新分区。');
+  html += quartileTable('中科院分区', d.cas, '中科院分区为历史年度数据，年份明确标注；没有对应年度数据时不做推断。');
+  document.getElementById('body').innerHTML = html;
+}
+
+var id = new URLSearchParams(location.search).get('id');
+if (!id) {
+  document.getElementById('head').innerHTML = '<div class="card"><p class="muted">缺少期刊编号。</p><p><a href="journals.html">返回期刊数据库</a></p></div>';
+} else {
+  APP.journalDetail(id).then(function (d) {
+    if (!d || d.ok === false) {
+      document.getElementById('head').innerHTML = '<div class="card"><p class="muted">未找到该期刊（可能已被删除）。</p><p><a href="journals.html">返回期刊数据库</a></p></div>';
+      return;
+    }
+    render(d);
+  }).catch(function (err) {
+    document.getElementById('head').innerHTML = '<div class="card"><p class="muted">加载失败：' + esc(err.message || '未知错误') + '</p></div>';
+  });
+}
+</script>
+</body>
+</html>

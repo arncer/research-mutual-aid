@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人中心 - 科研互助平台</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="page-profile">
+<nav id="nav"></nav>
+<div class="container container-wide">
+  <div class="msg" id="msg"></div>
+
+  <div class="pc-layout">
+    <aside class="pc-nav-wrap">
+      <div class="pc-nav" id="pc-nav" aria-label="个人中心目录">
+        <div class="pc-nav-title">个人中心</div>
+        <a href="#notif-card" data-target="notif-card">站内通知</a>
+        <a href="#myreq-card" data-target="myreq-card">我发布的求助</a>
+        <a href="#myatts-card" data-target="myatts-card">我的应助记录</a>
+        <a href="#uni-card" data-target="uni-card">院校信息</a>
+        <a href="#pwd-card" data-target="pwd-card">登录方式与密码</a>
+        <a href="#email-card" data-target="email-card">邮箱与手机绑定</a>
+        <a href="#account-card" data-target="account-card">我的账号</a>
+      </div>
+    </aside>
+
+    <main class="pc-content" id="pc-content">
+
+  <div class="card" id="notif-card">
+    <h2>站内通知</h2>
+    <div id="notifs"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="myreq-card">
+    <h2>我发布的求助</h2>
+    <p class="muted">排序：待审核（待你审核 / 待管理员复核）→ 求助中 → 已完成 → 已关闭 / 已失效；组内按最近更新时间倒序。</p>
+    <div id="my-requests"><p class="muted">加载中…</p></div>
+    <div class="btn-row" style="justify-content:center;margin-top:8px">
+      <button class="btn btn-sm btn-secondary" id="myreq-prev" disabled>上一页</button>
+      <span class="muted" id="myreq-page-info" style="align-self:center"></span>
+      <button class="btn btn-sm btn-secondary" id="myreq-next" disabled>下一页</button>
+    </div>
+  </div>
+
+  <div class="card" id="myatts-card">
+    <h2>我的应助记录（我上传的附件）</h2>
+    <div id="my-atts"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="points-card">
+    <h2>我的积分</h2>
+    <div id="points"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="uni-card">
+    <h2>院校信息</h2>
+    <p class="muted">用于后续判断所在院校是否可能订阅相关期刊。默认仅自己可见；未选择公开时不会展示给其他用户。</p>
+    <div id="uni-view"><p class="muted">加载中…</p></div>
+
+    <div id="uni-editor" class="hidden" style="margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:14px">
+      <label for="uni-country">所属国家或地区 <span class="muted">（必填）</span></label>
+      <input type="text" id="uni-country" list="uni-country-list" placeholder="如 中国、美国、英国" maxlength="40">
+      <datalist id="uni-country-list">
+        <option value="中国"></option><option value="美国"></option><option value="英国"></option>
+        <option value="加拿大"></option><option value="澳大利亚"></option><option value="德国"></option>
+        <option value="法国"></option><option value="日本"></option><option value="韩国"></option>
+        <option value="新加坡"></option><option value="瑞士"></option><option value="荷兰"></option>
+      </datalist>
+
+      <label for="uni-input">院校名称 <span class="muted">（输入关键词搜索，从下拉中选择）</span></label>
+      <div class="ac-wrap">
+        <input type="text" id="uni-input" placeholder="如 清华、Zhejiang、Tokyo" autocomplete="off" maxlength="80">
+        <div class="ac-list hidden" id="uni-list"></div>
+      </div>
+      <p class="muted" id="uni-selected" style="margin-top:6px"></p>
+      <p class="muted"><a href="#" id="uni-manual-toggle">找不到院校？手动填写</a></p>
+
+      <div id="uni-manual-box" class="hidden">
+        <label for="uni-manual-name">院校名称（手动填写）</label>
+        <input type="text" id="uni-manual-name" placeholder="请填写院校全称" maxlength="80">
+        <p class="muted">手动填写的院校会标记为「待核实 / 自定义院校」，管理员可后续核实并匹配到正式院校。</p>
+      </div>
+
+      <label for="uni-type">院校类型（选填）</label>
+      <input type="text" id="uni-type" placeholder="如 综合大学、理工类大学、医学院校" maxlength="40">
+      <label for="uni-college">学院或院系（选填）</label>
+      <input type="text" id="uni-college" placeholder="如 计算机科学与技术系" maxlength="80">
+      <label for="uni-major">专业或研究方向（选填）</label>
+      <input type="text" id="uni-major" placeholder="如 运筹学与调度优化" maxlength="80">
+
+      <label for="uni-visibility">可见性</label>
+      <select id="uni-visibility" style="max-width:240px">
+        <option value="private">仅自己可见（默认）</option>
+        <option value="public">对平台其他用户公开</option>
+      </select>
+
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-sm" id="uni-save">保存院校信息</button>
+        <button class="btn btn-sm btn-secondary" id="uni-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="journal-card">
+    <h2>完善学校订阅的期刊</h2>
+    <p class="muted">查看和补充本校已核验的期刊订阅信息。用户提交的信息需经管理员核实后才会纳入正式目录。订阅记录仅用于科研互助匹配，不代表任何用户必然拥有特定文章的访问权限。</p>
+    <div class="btn-row" style="justify-content:flex-start">
+      <button class="btn btn-sm btn-secondary" id="jcat-toggle" type="button">展开期刊订阅信息</button>
+    </div>
+
+    <div id="jcat-body" class="hidden">
+      <div class="doi-search" style="margin-top:12px">
+        <input type="text" id="jcat-kw" placeholder="搜索期刊名称 / ISSN / 学科分类 / 出版商" maxlength="80">
+        <button class="btn btn-secondary" id="jcat-search" type="button" style="margin-top:0">搜索</button>
+      </div>
+      <div id="jcat-uni" class="muted" style="margin-top:8px"></div>
+      <div id="jcat-verified"></div>
+      <div id="jcat-dbonly"></div>
+      <div class="btn-row" style="margin-top:12px;justify-content:flex-start">
+        <button class="btn btn-sm" id="jsub-open" type="button">提交期刊订阅信息</button>
+        <button class="btn btn-sm btn-secondary" id="jsub-list-open" type="button">查看我的提交记录</button>
+      </div>
+
+      <div id="jsub-form" class="hidden" style="margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:14px">
+        <div class="field-row"><span class="k">院校名称</span><span class="v" id="jsub-uni-value">—</span></div>
+        <label for="jsub-title">期刊正式名称 <span class="muted">（必填）</span></label>
+        <input type="text" id="jsub-title" placeholder="如 Management Decision" maxlength="200">
+        <div class="form-grid">
+          <div>
+            <label for="jsub-issn">ISSN <span class="muted">（如能确认）</span></label>
+            <input type="text" id="jsub-issn" placeholder="如 0025-1747" maxlength="20">
+          </div>
+          <div>
+            <label for="jsub-eissn">eISSN <span class="muted">（如能确认）</span></label>
+            <input type="text" id="jsub-eissn" placeholder="如 1758-6070" maxlength="20">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div>
+            <label for="jsub-publisher">出版商</label>
+            <input type="text" id="jsub-publisher" placeholder="如 Emerald Publishing" maxlength="120">
+          </div>
+          <div>
+            <label for="jsub-subject">学科分类</label>
+            <input type="text" id="jsub-subject" placeholder="如 管理学、运营管理" maxlength="120">
+          </div>
+        </div>
+        <label for="jsub-db">订阅数据库或资源平台</label>
+        <input type="text" id="jsub-db" placeholder="如 Emerald 电子期刊数据库" maxlength="120">
+        <label for="jsub-years">订阅年份或访问范围 <span class="muted">（选填，不确定请留空）</span></label>
+        <input type="text" id="jsub-years" placeholder="如 2015 年至今；不确定请留空，由管理员核实" maxlength="80">
+        <label for="jsub-url">官方图书馆资源页面链接</label>
+        <input type="text" id="jsub-url" placeholder="https://lib.example.edu.cn/…" maxlength="300">
+        <label for="jsub-evidence">其他核验依据 <span class="muted">（选填）</span></label>
+        <input type="text" id="jsub-evidence" placeholder="如 图书馆订购说明页、正式答复邮件编号" maxlength="300">
+        <label for="jsub-remark">补充说明</label>
+        <textarea id="jsub-remark" rows="3" placeholder="补充你确认该订阅的依据与范围" style="width:100%"></textarea>
+        <p class="muted">提交后状态为「待管理员审核」。只有管理员核实通过后，该期刊才会进入本校正式目录。</p>
+        <div class="btn-row" style="justify-content:flex-start">
+          <button class="btn btn-sm" id="jsub-submit" type="button">提交</button>
+          <button class="btn btn-sm btn-secondary" id="jsub-cancel" type="button">取消</button>
+        </div>
+      </div>
+
+      <div id="jsub-list" class="hidden" style="margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:14px">
+        <h3 style="margin-top:0">我的提交记录</h3>
+        <div id="jsub-list-body"><p class="muted">加载中…</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="reco-card">
+    <h2>每日科研求助推荐</h2>
+    <p class="muted">开启后，平台每天为你推荐最多 5 条新的有效求助，优先推荐与你所在院校已核验订阅期刊相关的求助。推荐内容每日更新，你可以随时关闭。</p>
+    <div id="reco-setting"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="reco-list-card">
+    <h2>今日为你推荐</h2>
+    <div id="reco-list"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="pwd-card">
+    <h2>登录方式与密码</h2>
+    <div id="pwd-body"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="email-card">
+    <h2>邮箱绑定</h2>
+    <div id="email-body"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="phone-card">
+    <h2>手机号绑定</h2>
+    <div id="phone-body"><p class="muted">加载中…</p></div>
+  </div>
+
+  <div class="card" id="account-card">
+    <h2>我的账号</h2>
+    <div id="account"><p class="muted">加载中…</p></div>
+  </div>
+
+    </main>
+  </div>
+
+  <div class="footer">科研互助平台 · 个人中心</div>
+</div>
+<script src="assets/workbuddy-cloud-sdk.js"></script>
+<script src="assets/app.js"></script>
+<script>
+var session = null;
+var profile = null;
+var isAdmin = false;
+var msg = document.getElementById('msg');
+var myReqPage = 1;
+var MY_REQ_PAGE_SIZE = 10;
+
+APP.requireLogin().then(function (s) {
+  if (!s) return null;
+  session = s;
+  return Promise.all([APP.checkAdmin(s), APP.getMyProfile(s), APP.initPage('profile')]);
+}).then(function (rs) {
+  if (!session || !rs) return;
+  isAdmin = rs[0];
+  profile = rs[1];
+  renderAccount();
+  loadPoints();
+  loadNotifs();
+  loadMyRequests();
+  loadMyAttachments();
+  loadUniversity();
+  loadPasswordSection();
+  loadPhoneSection();
+  // 期刊订阅目录：展开时才加载；推荐设置与今日推荐在登录态就绪后加载
+  loadRecoSetting();
+  loadRecoList();
+  // 先同步平台会话中已验证的邮箱，再渲染邮箱区与登录方式总览（幂等：已绑定则不改动）
+  APP.syncSessionEmail().catch(function () { return null; }).then(function () {
+    loadEmailSection();
+    loadPasswordSection();
+  });
+});
+
+// 「我发布的求助」分页（服务端先排序再分页）
+document.getElementById('myreq-prev').addEventListener('click', function () {
+  if (myReqPage > 1) { myReqPage--; loadMyRequests(); }
+});
+document.getElementById('myreq-next').addEventListener('click', function () {
+  myReqPage++; loadMyRequests();
+});
+
+// ---- 院校信息 ----
+var uniSelected = null;      // 已从下拉选中的正式院校 {id,name,country,type}
+var uniManualMode = false;   // 是否手动填写
+var uniSearchTimer = null;
+
+function loadUniversity() {
+  var box = document.getElementById('uni-view');
+  APP.myUniversity().then(function (u) {
+    if (!u || !u.university_name) {
+      box.innerHTML = '<p class="muted">尚未填写院校信息。</p>' +
+        '<div class="btn-row"><button class="btn btn-sm" id="uni-edit">填写院校信息</button></div>';
+      bindUniEdit();
+      return;
+    }
+    var verifyBadge = u.verified
+      ? '<span class="badge st-resolved">正式院校</span>'
+      : '<span class="badge st-pending">待核实 / 自定义院校</span>';
+    var visText = u.visibility === 'public' ? '对平台其他用户公开' : '仅自己可见';
+    box.innerHTML =
+      '<div class="field-row"><span class="k">院校名称</span><span class="v"><strong>' + APP.escapeHtml(u.university_name) + '</strong> ' + verifyBadge + '</span></div>' +
+      '<div class="field-row"><span class="k">国家或地区</span><span class="v">' + APP.escapeHtml(u.university_country || '未提供') + '</span></div>' +
+      '<div class="field-row"><span class="k">院校类型</span><span class="v">' + APP.escapeHtml(u.university_type || '未提供') + '</span></div>' +
+      '<div class="field-row"><span class="k">学院 / 院系</span><span class="v">' + APP.escapeHtml(u.college || '未提供') + '</span></div>' +
+      '<div class="field-row"><span class="k">专业 / 研究方向</span><span class="v">' + APP.escapeHtml(u.major || '未提供') + '</span></div>' +
+      '<div class="field-row"><span class="k">可见性</span><span class="v">' + visText + '</span></div>' +
+      '<div class="btn-row"><button class="btn btn-sm" id="uni-edit">修改院校信息</button></div>';
+    bindUniEdit(u);
+  }).catch(function (err) {
+    box.innerHTML = '<p class="muted">院校信息加载失败：' + APP.escapeHtml(err.message || '未知错误') + '</p>';
+  });
+}
+
+function bindUniEdit(current) {
+  var btn = document.getElementById('uni-edit');
+  if (!btn) return;
+  btn.addEventListener('click', function () { openUniEditor(current || null); });
+}
+
+function openUniEditor(current) {
+  uniSelected = current && current.university_id
+    ? { id: current.university_id, name: current.university_name, country: current.university_country, type: current.university_type }
+    : null;
+  uniManualMode = false;
+  document.getElementById('uni-editor').classList.remove('hidden');
+  document.getElementById('uni-manual-box').classList.add('hidden');
+  document.getElementById('uni-country').value = (current && current.university_country) || '中国';
+  document.getElementById('uni-input').value = (current && current.university_name) || '';
+  document.getElementById('uni-type').value = (current && current.university_type) || '';
+  document.getElementById('uni-college').value = (current && current.college) || '';
+  document.getElementById('uni-major').value = (current && current.major) || '';
+  document.getElementById('uni-visibility').value = (current && current.visibility) || 'private';
+  document.getElementById('uni-selected').textContent = uniSelected ? ('已选择：' + uniSelected.name) : '';
+  document.getElementById('uni-list').classList.add('hidden');
+}
+
+document.getElementById('uni-cancel').addEventListener('click', function () {
+  document.getElementById('uni-editor').classList.add('hidden');
+});
+
+document.getElementById('uni-manual-toggle').addEventListener('click', function (e) {
+  e.preventDefault();
+  uniManualMode = !uniManualMode;
+  uniSelected = null;
+  document.getElementById('uni-manual-box').classList.toggle('hidden', !uniManualMode);
+  document.getElementById('uni-selected').textContent = uniManualMode ? '将按自定义院校保存（标记待核实）' : '';
+  if (uniManualMode) document.getElementById('uni-manual-name').focus();
+});
+
+// 可搜索下拉：输入即查，选中后记录院校 ID 与规范名称
+document.getElementById('uni-input').addEventListener('input', function () {
+  var v = this.value.trim();
+  uniSelected = null;
+  document.getElementById('uni-selected').textContent = '';
+  clearTimeout(uniSearchTimer);
+  var list = document.getElementById('uni-list');
+  if (!v) { list.classList.add('hidden'); return; }
+  uniSearchTimer = setTimeout(function () {
+    APP.searchUniversities(v, document.getElementById('uni-country').value.trim(), 20)
+      .then(function (arr) {
+        var rows = arr || [];
+        if (!rows.length) {
+          list.innerHTML = '<div class="ac-empty">未找到匹配院校，可使用下方「手动填写」。</div>';
+          list.classList.remove('hidden');
+          return;
+        }
+        list.innerHTML = rows.map(function (u) {
+          return '<div class="ac-item" data-uid="' + u.id + '" data-name="' + APP.escapeHtml(u.name) +
+            '" data-country="' + APP.escapeHtml(u.country || '') + '" data-type="' + APP.escapeHtml(u.type || '') + '">' +
+            APP.escapeHtml(u.name) + '<span class="sub">' + APP.escapeHtml((u.country || '') + (u.region ? ' · ' + u.region : '') + (u.type ? ' · ' + u.type : '')) + '</span></div>';
+        }).join('');
+        list.classList.remove('hidden');
+        Array.prototype.forEach.call(list.querySelectorAll('.ac-item'), function (el) {
+          el.addEventListener('click', function () {
+            uniSelected = {
+              id: parseInt(el.getAttribute('data-uid'), 10),
+              name: el.getAttribute('data-name'),
+              country: el.getAttribute('data-country'),
+              type: el.getAttribute('data-type')
+            };
+            document.getElementById('uni-input').value = uniSelected.name;
+            document.getElementById('uni-country').value = uniSelected.country || '';
+            document.getElementById('uni-type').value = uniSelected.type || '';
+            document.getElementById('uni-selected').textContent = '已选择：' + uniSelected.name + '（正式院校）';
+            list.classList.add('hidden');
+          });
+        });
+      })
+      .catch(function () {
+        list.innerHTML = '<div class="ac-empty">院校搜索失败，请稍后重试或手动填写。</div>';
+        list.classList.remove('hidden');
+      });
+  }, 220);
+});
+
+document.addEventListener('click', function (e) {
+  var wrap = document.querySelector('.ac-wrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('uni-list').classList.add('hidden');
+});
+
+document.getElementById('uni-save').addEventListener('click', function () {
+  var country = document.getElementById('uni-country').value.trim();
+  var college = document.getElementById('uni-college').value.trim();
+  var major = document.getElementById('uni-major').value.trim();
+  var typeVal = document.getElementById('uni-type').value.trim();
+  var vis = document.getElementById('uni-visibility').value;
+
+  var payload;
+  if (uniManualMode) {
+    var nm = document.getElementById('uni-manual-name').value.trim();
+    if (!nm) { APP.showMsg(msg, '请填写院校名称。', 'error'); return; }
+    if (!country) { APP.showMsg(msg, '手动填写院校时必须选择国家或地区。', 'error'); return; }
+    payload = { name: nm, country: country, type: typeVal, college: college, major: major, visibility: vis };
+  } else {
+    if (!uniSelected) { APP.showMsg(msg, '请从下拉列表中选择院校，或点击「找不到院校？手动填写」。', 'error'); return; }
+    payload = { university_id: uniSelected.id, college: college, major: major, visibility: vis };
+  }
+
+  var btn = this; btn.disabled = true;
+  APP.setMyUniversity(payload).then(function (r) {
+    btn.disabled = false;
+    document.getElementById('uni-editor').classList.add('hidden');
+    APP.showMsg(msg, '院校信息已保存。', 'success');
+    loadUniversity();
+  }).catch(function (err) {
+    btn.disabled = false;
+    APP.showMsg(msg, '保存失败：' + (err.message || '未知错误'), 'error');
+  });
+});
+
+// ---- 绑定状态统一读取 ----
+// 所有状态都来自服务端函数 my_login_state()：它直接读认证库（auth.users 的 email / phone_number）
+// 与本人资料，因此界面不会把「未绑定」显示成「已绑定」。
+var loginState = null;
+
+function refreshLoginState() {
+  return APP.myLoginState().then(function (st) {
+    loginState = st || {};
+    return loginState;
+  }, function () {
+    loginState = {};
+    return loginState;
+  });
+}
+
+function stateBadge(ok, okText, noText) {
+  return ok
+    ? '<span class="badge st-resolved">' + okText + '</span>'
+    : '<span class="badge st-pending">' + noText + '</span>';
+}
+
+// ---- 邮箱绑定 ----
+// 绑定流程：平台真实下发邮箱验证码 → 校验通过后由服务端把邮箱写入本账号的身份记录。
+// 绑定后同一账号可用邮箱验证码/邮箱密码登录，不会创建第二个账号。
+function loadEmailSection() {
+  var box = document.getElementById('email-body');
+  refreshLoginState().then(function (st) {
+    var email = st.email || '';
+    var verified = !!st.email_verified;
+    box.innerHTML =
+      '<div class="field-row"><span class="k">绑定邮箱</span><span class="v">' +
+      (email ? APP.escapeHtml(email) + ' ' + stateBadge(verified, '已验证', '未验证') : '<em class="muted">尚未绑定</em>') +
+      '</span></div>' +
+      '<p class="muted">绑定后可用该邮箱接收「你的求助收到新的应助文件」等审核提醒，也可用邮箱验证码或邮箱+密码登录同一账号。' +
+      '绑定必须通过邮箱验证码验证所有权；一个邮箱只能绑定一个账号，绑定不改变用户 ID、积分、历史求助与权限。</p>' +
+      '<div class="btn-row"><button class="btn btn-sm" id="em-btn">' +
+      (email ? '重新验证 / 更换邮箱' : '绑定邮箱') + '</button></div>' +
+      '<div id="em-form" class="hidden" style="margin-top:12px;border-top:1px dashed #e5e7eb;padding-top:12px">' +
+      '<label for="em-email">邮箱</label>' +
+      '<input type="email" id="em-email" placeholder="name@example.com" maxlength="120" value="' + APP.escapeHtml(email) + '">' +
+      '<button class="btn btn-sm" id="em-send" style="margin-top:8px">发送邮箱验证码</button>' +
+      '<div id="em-step2" class="hidden" style="margin-top:12px">' +
+      '<label for="em-code">邮箱验证码（5 分钟内有效，仅可使用一次）</label>' +
+      '<input type="text" id="em-code" maxlength="6" inputmode="numeric" placeholder="6 位验证码">' +
+      '<div class="btn-row"><button class="btn btn-sm" id="em-save">完成绑定</button></div></div>' +
+      '<p class="muted" id="em-tip" style="margin-top:8px"></p></div>';
+
+    document.getElementById('em-btn').addEventListener('click', function () {
+      document.getElementById('em-form').classList.toggle('hidden');
+    });
+    APP.emailBindForm({
+      email: 'em-email', code: 'em-code', send: 'em-send',
+      save: 'em-save', step2: 'em-step2', tip: 'em-tip'
+    }, {
+      onDone: function (em) {
+        APP.showMsg(msg, '邮箱已绑定并验证：' + em + '。现在可以用该邮箱登录同一账号。', 'success');
+        loadEmailSection();
+        loadPasswordSection();
+      }
+    });
+  });
+}
+
+// ---- 手机号绑定 ----
+// 手机号只能通过短信验证码绑定；绑定后用于短信验证码登录（平台不支持短信重置密码）。
+function loadPhoneSection() {
+  var box = document.getElementById('phone-body');
+  refreshLoginState().then(function (st) {
+    var phone = st.phone || '';
+    var verified = !!st.phone_verified;
+    box.innerHTML =
+      '<div class="field-row"><span class="k">绑定手机号</span><span class="v">' +
+      (phone ? APP.escapeHtml(phone) + ' ' + stateBadge(verified, '已绑定', '未验证') : '<em class="muted">尚未绑定</em>') +
+      '</span></div>' +
+      '<p class="muted">绑定后可以用<strong>短信验证码登录同一账号</strong>（用户 ID、昵称、积分、求助记录、管理员权限都不变），' +
+      '也可以继续用邮箱登录。手机号必须通过短信验证码验证所有权；一个手机号只能绑定一个账号，' +
+      '已属于其他账号时不会自动合并。<br>' +
+      '注意：手机号<strong>仅支持短信验证码登录</strong>；密码重置请使用已验证邮箱（平台的短信通道未开放密码重置）。</p>' +
+      '<div class="btn-row"><button class="btn btn-sm" id="ph-btn">' +
+      (phone ? '更换手机号' : '绑定手机号') + '</button></div>' +
+      '<div id="ph-form" class="hidden" style="margin-top:12px;border-top:1px dashed #e5e7eb;padding-top:12px">' +
+      '<label for="ph-phone">手机号</label>' +
+      '<input type="tel" id="ph-phone" placeholder="11 位手机号" maxlength="11" inputmode="numeric" value="' +
+      APP.escapeHtml(phone.replace(/^\+86\s*/, '')) + '">' +
+      '<button class="btn btn-sm" id="ph-send" style="margin-top:8px">获取短信验证码</button>' +
+      '<div id="ph-step2" class="hidden" style="margin-top:12px">' +
+      '<label for="ph-code">短信验证码（5 分钟内有效，仅可使用一次）</label>' +
+      '<input type="text" id="ph-code" maxlength="6" inputmode="numeric" placeholder="6 位验证码">' +
+      '<div class="btn-row"><button class="btn btn-sm" id="ph-save">完成绑定</button></div></div>' +
+      '<p class="muted" id="ph-tip" style="margin-top:8px"></p></div>';
+
+    document.getElementById('ph-btn').addEventListener('click', function () {
+      document.getElementById('ph-form').classList.toggle('hidden');
+    });
+    APP.phoneBindForm({
+      phone: 'ph-phone', code: 'ph-code', send: 'ph-send',
+      save: 'ph-save', step2: 'ph-step2', tip: 'ph-tip'
+    }, {
+      onDone: function (ph) {
+        APP.showMsg(msg, '手机号已绑定：' + ph + '。现在可以用该手机号的短信验证码登录同一账号。', 'success');
+        loadPhoneSection();
+        loadPasswordSection();
+      }
+    });
+  });
+}
+
+
+// ---- 登录方式与密码（状态全部来自认证服务真实值，界面上不写死） ----
+var METHOD_TEXT = {
+  email_otp: '邮箱验证码登录',
+  email_password: '邮箱 + 密码',
+  phone_otp: '手机号短信验证码登录',
+  phone_password: '手机号 + 密码'
+};
+
+function openBindCard(which) {
+  var card = document.getElementById(which === 'phone' ? 'phone-card' : 'email-card');
+  if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  var form = document.getElementById(which === 'phone' ? 'ph-form' : 'em-form');
+  var btn = document.getElementById(which === 'phone' ? 'ph-btn' : 'em-btn');
+  if (btn && form && form.classList.contains('hidden')) btn.click();
+}
+
+function loadPasswordSection() {
+  var box = document.getElementById('pwd-body');
+  refreshLoginState().then(function (st) {
+    var has = !!st.has_password;
+    var methods = st.methods || [];
+    var list = methods.length
+      ? methods.map(function (m) { return '<span class="badge st-open">' + (METHOD_TEXT[m] || APP.escapeHtml(m)) + '</span>'; }).join(' ')
+      : '<em class="muted">暂无可用登录方式</em>';
+    var email = st.email || '';
+    var phone = st.phone || '';
+
+    box.innerHTML =
+      '<div class="field-row"><span class="k">邮箱</span><span class="v">' +
+      (email ? APP.escapeHtml(email) + ' ' + stateBadge(!!st.email_verified, '已验证', '未验证') : '<em class="muted">尚未绑定</em>') +
+      '</span></div>' +
+      '<div class="field-row"><span class="k">手机号</span><span class="v">' +
+      (phone ? APP.escapeHtml(phone) + ' ' + stateBadge(!!st.phone_verified, '已绑定', '未验证') : '<em class="muted">尚未绑定</em>') +
+      '</span></div>' +
+      '<div class="field-row"><span class="k">密码登录</span><span class="v">' + stateBadge(has, '已设置', '尚未设置') + '</span></div>' +
+      '<div class="field-row"><span class="k">当前可用登录方式</span><span class="v">' + list + '</span></div>' +
+      '<p class="muted">密码由 WorkBuddy 托管认证服务加密存储，本站不保存明文，也不接触验证码内容。' +
+      '手机号仅支持短信验证码登录；密码重置请使用已验证邮箱（平台的短信通道未开放密码重置）。</p>' +
+      (email && !st.email_verified ? '<div class="msg warn" style="display:block">该邮箱尚未完成验证，暂不能用于登录或重置密码。</div>' : '') +
+      (phone && !st.phone_verified ? '<div class="msg warn" style="display:block">该手机号尚未完成验证，暂不能用于登录。</div>' : '') +
+      '<div class="btn-row">' +
+      (!email ? '<button class="btn btn-sm btn-secondary" id="go-email">绑定邮箱</button>' : '') +
+      (!phone ? '<button class="btn btn-sm btn-secondary" id="go-phone">绑定手机号</button>' : '') +
+      '<button class="btn btn-sm" id="pwd-set">' + (has ? '重置密码' : '设置密码') + '</button>' +
+      '</div>' +
+
+      '<div id="pwd-form" class="hidden" style="margin-top:12px;border-top:1px dashed #e5e7eb;padding-top:12px">' +
+      '<div class="msg info" style="display:block">设置/重置密码需要通过<strong>已验证邮箱</strong>的验证码验证身份。' +
+      '如果你还没有绑定邮箱，请先在上方「邮箱绑定」完成绑定；手机号只能用于短信验证码登录，不能重置密码。</div>' +
+      '<label for="pwd-email">账号绑定的邮箱</label>' +
+      '<input type="email" id="pwd-email" placeholder="name@example.com" value="' + APP.escapeHtml(email) + '">' +
+      '<button class="btn btn-sm" id="pwd-send" style="margin-top:8px">发送邮箱验证码</button>' +
+      '<div id="pwd-step2" class="hidden" style="margin-top:12px">' +
+      '<label for="pwd-code">邮箱验证码（5 分钟内有效，仅可使用一次）</label>' +
+      '<input type="text" id="pwd-code" maxlength="6" inputmode="numeric">' +
+      '<label for="pwd-new">新密码（6 位数字）</label><input type="password" id="pwd-new" maxlength="6" inputmode="numeric">' +
+      '<label for="pwd-new2">确认新密码</label><input type="password" id="pwd-new2" maxlength="6" inputmode="numeric">' +
+      '<div class="btn-row"><button class="btn btn-sm" id="pwd-save">保存新密码</button></div></div>' +
+      '<p class="muted" id="pwd-tip" style="margin-top:8px"></p></div>';
+
+    var goEmail = document.getElementById('go-email');
+    if (goEmail) goEmail.addEventListener('click', function () { openBindCard('email'); });
+    var goPhone = document.getElementById('go-phone');
+    if (goPhone) goPhone.addEventListener('click', function () { openBindCard('phone'); });
+    bindPasswordForm();
+  });
+}
+
+
+function bindPasswordForm() {
+  var started = null;
+
+  document.getElementById('pwd-set').addEventListener('click', function () {
+    document.getElementById('pwd-form').classList.toggle('hidden');
+  });
+
+  document.getElementById('pwd-send').addEventListener('click', function () {
+    var email = document.getElementById('pwd-email').value.trim();
+    var tip = document.getElementById('pwd-tip');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { tip.textContent = '请输入正确的邮箱地址。'; return; }
+    var b = this; b.disabled = true;
+    // 该接口只会向「已绑定该邮箱的账号」发送重置验证码；未绑定/不存在时由认证服务拒绝，
+    // 前端无法用它替别人重置密码。
+    APP.cloud.auth.resetPasswordForEmail(email).then(function (r) {
+      if (r.error) { b.disabled = false; tip.textContent = '发送失败：' + (r.error.message || '未知错误'); return; }
+      started = r.data;
+      document.getElementById('pwd-step2').classList.remove('hidden');
+      tip.textContent = '验证码已发送，请查收邮件（5 分钟内有效，仅可使用一次）。';
+      b.textContent = '重新发送'; b.disabled = false;
+    });
+  });
+
+  document.getElementById('pwd-save').addEventListener('click', function () {
+    var tip = document.getElementById('pwd-tip');
+    var code = document.getElementById('pwd-code').value.trim();
+    var p1 = document.getElementById('pwd-new').value;
+    var p2 = document.getElementById('pwd-new2').value;
+    if (!started) { tip.textContent = '请先发送邮箱验证码。'; return; }
+    if (!code) { tip.textContent = '请输入验证码。'; return; }
+    if (!/^\d{6}$/.test(p1)) { tip.textContent = '密码必须是 6 位数字。'; return; }
+    if (p1 !== p2) { tip.textContent = '两次输入的密码不一致。'; return; }
+    var b = this; b.disabled = true;
+    started.updateUser({ nonce: code, password: p1 }).then(function (res) {
+      b.disabled = false;
+      if (res.error) { tip.textContent = '重置失败：' + (res.error.message || '验证码错误、已过期或已使用'); return; }
+      // 记录「已设置过密码」仅用于界面提示；密码本身始终只存在于托管认证服务
+      APP.markPasswordSet().catch(function () {}).then(function () {
+        APP.showMsg(msg, '密码重置成功。你的用户 ID、积分、求助记录与角色均未改变；下次可使用新密码登录。', 'success');
+        loadPasswordSection();
+      });
+    });
+  });
+}
+
+// ---- 积分区域 ----
+// 所有数字都来自服务端函数 / 受 RLS 保护的积分表，前端不做任何本地累加
+var checkinBusy = false;
+
+function loadPoints() {
+  var box = document.getElementById('points');
+  if (!box) return;
+  box.innerHTML = '<p class="muted">加载中…</p>';
+  Promise.all([APP.myPointsOverview(), APP.myTransactions(20)])
+    .then(function (rs) {
+      var ov = rs[0] || {};
+      var txs = rs[1] || [];
+      var checked = !!ov.checked_in_today;
+      var html = '';
+      html += '<div class="point-hero"><div class="point-hero-main">' +
+        '<div class="point-num">' + (ov.balance === undefined ? '—' : ov.balance) + '</div>' +
+        '<div class="point-lbl">当前可用积分</div></div>' +
+        '<div class="point-hero-side">' +
+        '<div class="point-sm"><span class="point-sm-num">' + (ov.help_earned === undefined ? '—' : ov.help_earned) + '</span><span class="point-sm-lbl">累计助人获得积分</span></div>' +
+        '<div class="point-sm"><span class="point-sm-num">' + (ov.help_count === undefined ? '—' : ov.help_count) + '</span><span class="point-sm-lbl">累计成功帮助次数</span></div>' +
+        '</div></div>';
+
+      html += '<div class="checkin-row">' +
+        '<span class="muted">今日签到状态（' + APP.escapeHtml(ov.today || '') + '，按北京时间计算）：' +
+        (checked ? '<strong style="color:#047857">今日已签到</strong>' : '<strong style="color:#b45309">今日未签到</strong>') + '</span>' +
+        '<button class="btn btn-sm" id="checkin-btn"' + (checked ? ' disabled' : '') + '>' +
+        (checked ? '今日已签到' : '每日签到 +5 积分') + '</button></div>';
+
+      html += '<div class="btn-row" style="margin-top:10px"><a class="btn btn-sm btn-secondary" href="leaderboard.html">查看每日助人排行榜</a></div>';
+
+      html += '<h3 style="margin:16px 0 8px">最近的积分交易明细</h3>';
+      if (!txs.length) {
+        html += '<p class="muted">暂无积分交易记录。</p>';
+      } else {
+        var rows = txs.map(function (t) {
+          var delta = APP.signedAmount(t.amount);
+          return '<tr><td>' + APP.pointTypeBadge(t.type) + '</td>' +
+            '<td style="color:' + (t.amount > 0 ? '#047857' : '#b91c1c') + ';font-weight:600">' + delta + '</td>' +
+            '<td>' + t.balance_before + ' → ' + t.balance_after + '</td>' +
+            '<td>' + (t.request_id ? '<a href="request.html?id=' + t.request_id + '">#' + t.request_id + '</a>' : '<span class="muted">—</span>') + '</td>' +
+            '<td>' + APP.escapeHtml(t.note || '') + '</td>' +
+            '<td>' + APP.fmtTime(t.created_at) + '</td></tr>';
+        }).join('');
+        html += '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
+          '<th>类型</th><th>积分变化</th><th>余额变化</th><th>关联求助</th><th>说明</th><th>时间</th>' +
+          '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+      }
+      box.innerHTML = html;
+
+      var cb = document.getElementById('checkin-btn');
+      if (cb) cb.addEventListener('click', doCheckin);
+    })
+    .catch(function (err) {
+      box.innerHTML = '<p class="muted">积分数据加载失败：' + APP.escapeHtml(err.message || '未知错误') + '</p>';
+    });
+}
+
+function doCheckin() {
+  if (checkinBusy) return;
+  var btn = document.getElementById('checkin-btn');
+  checkinBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = '签到中…'; }
+  APP.dailyCheckin()
+    .then(function (r) {
+      if (r && r.applied) {
+        APP.showMsg(msg, '签到成功，获得 5 积分，当前可用 ' + r.balance + ' 积分。', 'success');
+      } else {
+        APP.showMsg(msg, '今天已经签到过了，同一天不能重复获得积分。', 'info');
+      }
+      loadPoints();
+    })
+    .catch(function (err) {
+      APP.showMsg(msg, '签到失败：' + (err.message || '未知错误'), 'error');
+      loadPoints();
+    })
+    .finally(function () {
+      checkinBusy = false;
+      if (btn) btn.disabled = false;
+    });
+}
+
+function renderAccount() {
+  var u = session.user || {};
+  var contact = u.phoneNumber || u.email || '';
+  var nick = APP.displayName(session, profile);
+  var html = '<div class="field-row"><span class="k">昵称</span><span class="v">' + APP.escapeHtml(nick || '未设置昵称') + '</span></div>' +
+    '<div class="field-row"><span class="k">账号</span><span class="v">' + APP.escapeHtml(contact || '未提供') + '</span></div>' +
+    '<div class="field-row"><span class="k">角色</span><span class="v">' + (isAdmin ? '管理员' : '普通用户') + '</span></div>' +
+    '<div class="field-row"><span class="k">用户 ID</span><span class="v"><code>' + APP.escapeHtml(u.id) + '</code> ' +
+    '<button class="btn btn-sm btn-secondary" id="copy-uid">复制</button></span></div>' +
+    '<div class="btn-row" style="margin-top:10px"><button class="btn btn-sm" id="edit-nick">设置昵称 / 编辑资料</button></div>' +
+    '<div id="nick-editor" class="hidden" style="margin-top:12px;border-top:1px dashed #e5e7eb;padding-top:12px">' +
+    '<label for="nick-input">昵称（2～20 个字符，支持中文、英文、数字）</label>' +
+    '<input type="text" id="nick-input" maxlength="20" placeholder="请输入昵称" value="' + APP.escapeHtml((profile && profile.nickname) || '') + '">' +
+    '<div class="btn-row"><button class="btn btn-sm" id="nick-save">保存</button>' +
+    '<button class="btn btn-sm btn-secondary" id="nick-cancel">取消</button></div></div>' +
+    '<p class="muted" style="margin-top:8px">昵称会同步显示在页面顶部、互助广场和求助详情的发布者名称中。用户 ID 与角色由平台身份系统管理，不可自行修改。</p>';
+  document.getElementById('account').innerHTML = html;
+
+  document.getElementById('copy-uid').addEventListener('click', function () {
+    navigator.clipboard.writeText(u.id).then(function () {
+      APP.showMsg(msg, '用户 ID 已复制。', 'success');
+    });
+  });
+  document.getElementById('edit-nick').addEventListener('click', function () {
+    document.getElementById('nick-editor').classList.remove('hidden');
+    document.getElementById('nick-input').value = (profile && profile.nickname) || '';
+    document.getElementById('nick-input').focus();
+  });
+  document.getElementById('nick-cancel').addEventListener('click', function () {
+    document.getElementById('nick-editor').classList.add('hidden');   // 取消不保存
+    APP.showMsg(msg, '已取消修改。', 'info');
+  });
+  document.getElementById('nick-save').addEventListener('click', saveNickname);
+}
+
+function saveNickname() {
+  var val = (document.getElementById('nick-input').value || '').trim();
+  if (!val) { APP.showMsg(msg, '昵称不能为空，请输入 2～20 个字符。', 'error'); return; }
+  if (val.length < 2 || val.length > 20) { APP.showMsg(msg, '昵称长度需为 2～20 个字符，当前 ' + val.length + ' 个。', 'error'); return; }
+  if (!/^[0-9A-Za-z一-龥_·. -]+$/.test(val)) {
+    APP.showMsg(msg, '昵称只能包含中文、英文、数字、空格以及 _ · . - 符号。', 'error'); return;
+  }
+  var btn = document.getElementById('nick-save');
+  btn.disabled = true;
+  APP.showMsg(msg, '正在保存昵称…', 'info');
+  APP.saveNickname(val).then(function (res) {
+    profile = { user_id: session.user.id, nickname: (res && res.nickname) || val };
+    APP.showMsg(msg, '昵称已保存：' + profile.nickname + '，已同步更新你发布的求助（' +
+      ((res && res.requests_updated) || 0) + ' 条）。', 'success');
+    document.getElementById('nick-editor').classList.add('hidden');
+    renderAccount();
+    APP.initPage('profile');   // 刷新顶部导航中的昵称
+    loadMyRequests();          // 刷新发布者名称显示
+  }).catch(function (err) {
+    APP.showMsg(msg, '昵称保存失败：' + err.message, 'error');
+  }).finally(function () { btn.disabled = false; });
+}
+
+function loadNotifs() {
+  APP.cloud.database.from('notifications').select('*')
+    .order('created_at', { ascending: false }).limit(20)
+    .then(function (r) {
+      var box = document.getElementById('notifs');
+      if (r.error) { box.innerHTML = '<p class="muted">通知加载失败。</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">暂无通知。</p>'; return; }
+      box.innerHTML = r.data.map(function (n) {
+        // 跳转目标由通知记录里的真实 request_id 决定（不解析文案），
+        // 未关联求助的通知不可点击，避免跳到错误页面。
+        var hasReq = n.request_id !== null && n.request_id !== undefined;
+        // 「请绑定邮箱」这类账号安全提醒没有 request_id，给一条直达邮箱绑定区的入口，
+        // 不再渲染成不可点击的死卡片。
+        var isBindNotice = !hasReq && /绑定邮箱/.test(String(n.title || ''));
+        var open = hasReq
+          ? '<div class="notif-open"><a href="request.html?id=' + n.request_id + '" data-notif="' + n.id + '">查看求助 #' + n.request_id + ' →</a></div>'
+          : (isBindNotice
+            ? '<div class="notif-open"><a href="#email-card" data-bind="email" data-notif="' + n.id + '">前往「邮箱绑定」→</a></div>'
+            : '');
+        return '<div class="req-item' + (hasReq ? ' notif-item' : '') + '"' + (hasReq ? ' data-nid="' + n.id + '" data-rid="' + n.request_id + '"' : '') + '>' +
+          '<h3>' + (n.is_read ? '' : '<span class="badge st-open">未读</span> ') + APP.escapeHtml(n.title) + '</h3>' +
+          '<div class="desc">' + APP.escapeHtml(n.content || '') + '</div>' +
+          open +
+          '<div class="meta"><span>' + APP.fmtTime(n.created_at) + '</span>' +
+          (n.is_read ? '' : '<span><a href="#" data-read="' + n.id + '">标记已读</a></span>') +
+          '</div></div>';
+      }).join('');
+
+      // 标记已读：只更新当前用户自己的通知（RLS 保证），失败不阻断跳转
+      function markRead(nid) {
+        return APP.cloud.database.from('notifications')
+          .update({ is_read: true }).eq('id', nid).select();
+      }
+
+      Array.prototype.forEach.call(box.querySelectorAll('[data-read]'), function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          markRead(parseInt(a.getAttribute('data-read'), 10)).then(function () { loadNotifs(); });
+        });
+      });
+
+      // 统一跳转：先标记已读（失败绝不阻断），再打开求助详情。
+      // 不用 Promise.prototype.finally —— 云 SDK 的查询构建器只保证 then/catch，
+      // 依赖 finally 会在部分运行时抛 TypeError，导致点击"看起来没反应"。
+      // 另加 800ms 兜底定时器：即使标记已读请求挂起，也一定完成跳转。
+      function openRequest(nid, href) {
+        var navigated = false;
+        function nav() {
+          if (navigated) return;
+          navigated = true;
+          location.href = href;
+        }
+        setTimeout(nav, 800);
+        try {
+          var p = markRead(nid);
+          if (p && typeof p.then === 'function') p.then(nav, nav);
+          else nav();
+        } catch (e) {
+          console.warn('[通知跳转] 标记已读失败，直接跳转', href, e);
+          nav();
+        }
+      }
+
+      // 点击「前往邮箱绑定 →」：标记已读后直接展开对应绑定表单
+      Array.prototype.forEach.call(box.querySelectorAll('[data-bind]'), function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var nid = parseInt(a.getAttribute('data-notif'), 10);
+          openBindCard(a.getAttribute('data-bind'));
+          markRead(nid).then(function () { loadNotifs(); }, function () { /* 失败不打断 */ });
+        });
+      });
+      // 点击「查看求助 #N →」链接
+      Array.prototype.forEach.call(box.querySelectorAll('[data-notif]'), function (a) {
+        a.addEventListener('click', function (e) {
+          if (a.hasAttribute('data-bind')) return;   // 绑定入口由上面的处理器负责
+          e.preventDefault();
+          e.stopPropagation();
+          openRequest(parseInt(a.getAttribute('data-notif'), 10), a.getAttribute('href'));
+        });
+      });
+      // 点击整张卡片（链接与「标记已读」自行处理，避免重复导航）
+      Array.prototype.forEach.call(box.querySelectorAll('.notif-item'), function (card) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', function (e) {
+          if (e.target.closest('a')) return;
+          openRequest(parseInt(card.getAttribute('data-nid'), 10),
+            'request.html?id=' + card.getAttribute('data-rid'));
+        });
+      });
+    });
+}
+
+function loadMyRequests() {
+  // 排序由服务端 my_requests_sorted 完成（先完整排序再分页）：
+  // 1) 待审核（待求助人审核 / 待管理员复核） 2) 求助中  3) 已完成  4) 已关闭 / 已失效 / 无效
+  // 组内按 updated_at 倒序，最近发生状态变化或收到新应助文件的排在前面。
+  APP.myRequestsSorted(MY_REQ_PAGE_SIZE, (myReqPage - 1) * MY_REQ_PAGE_SIZE)
+    .then(function (d) {
+      var box = document.getElementById('my-requests');
+      var rows = (d && d.rows) || [];
+      var total = (d && d.total) || 0;
+      var pages = Math.max(1, Math.ceil(total / MY_REQ_PAGE_SIZE));
+      if (myReqPage > pages) { myReqPage = pages; return loadMyRequests(); }
+
+      document.getElementById('myreq-page-info').textContent =
+        total ? ('第 ' + myReqPage + ' / ' + pages + ' 页，共 ' + total + ' 条') : '';
+      document.getElementById('myreq-prev').disabled = myReqPage <= 1;
+      document.getElementById('myreq-next').disabled = myReqPage >= pages;
+
+      if (!rows.length) { box.innerHTML = '<p class="muted">你还没有发布过求助。<a href="publish.html">去发布</a></p>'; return; }
+      box.innerHTML = rows.map(function (it) {
+        var cite = APP.paperCiteLine(it);
+        // 只有「求助中」且没有待审附件时才能取消；待审核/待复核期间禁止取消与退款（服务端同样强制）
+        var canCancel = (it.status === 'open' || it.status === 'seeking' || it.status === 'in_progress');
+        var expired = APP.isFileExpired(it);
+        var statusHtml = APP.statusBadge(it.status) + ' ' + APP.bountyBadge(it);
+        if (it.status === 'completed' && expired) {
+          statusHtml += ' <span class="badge st-closed">已完成（文件已过期）</span>';
+        }
+        var acts = '<span><a href="#" data-cancel="' + it.id + '">取消求助' +
+          ((it.bounty_status === 'locked' && it.bounty_points) ? '（退还 ' + it.bounty_points + ' 积分）' : '') + '</a></span>' +
+          '<span><a href="#" data-del="' + it.id + '" style="color:#b91c1c">删除</a></span>';
+        var lockTip = (it.status === 'pending_requester_review' || it.status === 'pending_admin_review')
+          ? '<div class="muted" style="margin-top:4px">' +
+            (it.status === 'pending_admin_review'
+              ? '应助文件正在管理员复核中，复核期间不能取消求助或退还悬赏。'
+              : '已有应助文件等待你审核，审核期间不能取消求助或退还悬赏。') + '</div>'
+          : '';
+        return '<div class="req-item"><h3><a href="request.html?id=' + it.id + '">#' + it.id + ' ' + APP.escapeHtml(it.paper_title || it.doi || '（未填写标题）') + '</a></h3>' +
+          '<div>' + statusHtml + '</div>' + lockTip +
+          (cite ? '<div class="cite-line">' + cite + '</div>' : '') +
+          (it.status === 'completed' ? '<div class="muted">' + APP.escapeHtml(APP.fileExpiryText(it)) + '</div>' : '') +
+          '<div class="meta"><span>DOI：' + (it.doi ? APP.escapeHtml(it.doi) : '<em class="muted">暂未提供</em>') + '</span>' +
+          '<span>更新：' + APP.fmtTime(it.updated_at || it.created_at) + '</span>' +
+          (canCancel ? acts : '<span><a href="#" data-del="' + it.id + '" style="color:#b91c1c">删除</a></span>') +
+          '</div></div>';
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-cancel]'), function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var rid = parseInt(a.getAttribute('data-cancel'), 10);
+          if (!confirm('确定取消该求助？取消后不再接受新的应助文件；若悬赏仍为「已预留」，将退还 5 积分（只退还一次）。')) return;
+          APP.setRequestStatus(rid, 'closed')
+            .then(function (res) {
+              APP.showMsg(msg, res && res.refunded
+                ? ('求助已取消，已退还 ' + res.refund_points + ' 积分。')
+                : '求助已取消（该求助无待退还的预留悬赏）。', 'success');
+              loadMyRequests();
+              loadPoints();
+            })
+            .catch(function (err) {
+              APP.showMsg(msg, '取消失败：' + (err.message || '未知错误'), 'error');
+            });
+        });
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-del]'), function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (!confirm('确定删除该求助？删除后不可恢复；若悬赏仍为「已预留」，将先退还积分再删除。')) return;
+          var rid = parseInt(a.getAttribute('data-del'), 10);
+          APP.deleteRequestWithRefund(rid)
+            .then(function (res) {
+              APP.showMsg(msg, res && res.refunded
+                ? ('已删除，并退还 ' + res.refund_points + ' 积分。')
+                : '已删除。', 'success');
+              loadMyRequests();
+              loadPoints();
+            })
+            .catch(function (err) {
+              APP.showMsg(msg, '删除失败：' + (err.message || '未知错误'), 'error');
+            });
+        });
+      });
+    });
+}
+
+function loadMyAttachments() {
+  APP.cloud.database.from('attachments').select('*')
+    .eq('owner_id', session.user.id)
+    .order('created_at', { ascending: false })
+    .then(function (r) {
+      var box = document.getElementById('my-atts');
+      if (r.error) { box.innerHTML = '<p class="muted">加载失败：' + APP.escapeHtml(r.error.message) + '</p>'; return; }
+      if (!r.data || !r.data.length) { box.innerHTML = '<p class="muted">你还没有上传过附件。</p>'; return; }
+      box.innerHTML = r.data.map(function (a) {
+        var html = '<div class="req-item"><h3>' + APP.escapeHtml(a.file_name) + ' ' + APP.attStatusBadge(a.status) + '</h3>' +
+          '<div class="meta"><span>所属求助：<a href="request.html?id=' + a.request_id + '">#' + a.request_id + '</a></span><span>' + APP.fmtTime(a.created_at) + '</span></div>';
+        if (a.status === 'rejected') {
+          html += '<p class="muted">审核意见：' + APP.escapeHtml(a.review_note || '未填写') + '</p>';
+        }
+        if (a.status === 'approved') {
+          html += '<p class="muted">该附件已审核通过，对应求助已完成；如该求助设有 5 积分悬赏，悬赏收入已计入上方「累计助人获得积分」。</p>';
+        }
+        html += '</div>';
+        return html;
+      }).join('');
+    });
+}
+
+/* ================= 院校期刊订阅目录 ================= */
+var jcatData = null;
+var jcatKeyword = '';
+var jsubEditingId = null;
+
+function esc(s) { return APP.escapeHtml(s === null || s === undefined ? '' : String(s)); }
+
+// 演示测试数据必须显式标注，不能冒充正式已核验订阅
+function demoTag(isDemo) {
+  return isDemo ? ' <span class="badge st-review">演示测试数据</span>' : '';
+}
+
+function jcatToggle() {
+  var body = document.getElementById('jcat-body');
+  var btn = document.getElementById('jcat-toggle');
+  var open = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !open);
+  btn.textContent = open ? '收起期刊订阅信息' : '展开期刊订阅信息';
+  if (open && !jcatData) loadJournalCatalog('');
+}
+
+document.getElementById('jcat-toggle').addEventListener('click', jcatToggle);
+
+document.getElementById('jcat-search').addEventListener('click', function () {
+  jcatKeyword = (document.getElementById('jcat-kw').value || '').trim();
+  loadJournalCatalog(jcatKeyword);
+});
+document.getElementById('jcat-kw').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    jcatKeyword = (this.value || '').trim();
+    loadJournalCatalog(jcatKeyword);
+  }
+});
+
+function journalRow(j, kind) {
+  var statusText = kind === 'verified' ? '已核验订阅' : '仅确认订购数据库（具体期刊待核实）';
+  var statusCls = kind === 'verified' ? 'st-resolved' : 'st-pending';
+  var years = j.coverage_years && j.coverage_years !== '待核实' ? j.coverage_years : '待核实';
+  var scope = j.coverage_scope || '待核实';
+  var html = '<tr>' +
+    '<td><strong>' + esc(j.title) + '</strong>' + demoTag(j.is_demo) + '</td>' +
+    '<td>' + (j.issn ? esc(j.issn) : '<span class="muted">待核实</span>') +
+    (j.eissn ? '<br><span class="muted">eISSN ' + esc(j.eissn) + '</span>' : '') + '</td>' +
+    '<td>' + (j.publisher ? esc(j.publisher) : '<span class="muted">待核实</span>') + '</td>' +
+    '<td>' + (j.subject ? esc(j.subject) : '<span class="muted">待核实</span>') + '</td>' +
+    '<td>' + (j.database_name ? esc(j.database_name) : '<span class="muted">待核实</span>') + '</td>' +
+    '<td><span class="badge ' + statusCls + '">' + statusText + '</span><br><span class="muted">范围年份：' + esc(years) + '</span></td>' +
+    '</tr>' +
+    '<tr><td colspan="6" class="muted" style="border-top:none;padding-top:0">订阅范围：' + esc(scope) +
+    (j.evidence_note ? '<br>核验依据：' + esc(j.evidence_note) : '') +
+    (j.source_url ? '<br>来源：<a href="' + esc(j.source_url) + '" target="_blank" rel="noopener noreferrer">' + esc(j.source_url) + '</a>' : '') +
+    (j.reviewer_name ? '<br>审核人：' + esc(j.reviewer_name) : '') +
+    (j.reviewed_at ? ' · 审核时间：' + esc(APP.fmtTime(j.reviewed_at)) : '') +
+    '</td></tr>';
+  return html;
+}
+
+function renderJournalTable(list, kind) {
+  if (!list || !list.length) return '';
+  return '<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr>' +
+    '<th>期刊名称</th><th>ISSN / eISSN</th><th>出版商</th><th>学科</th><th>订阅来源</th><th>核验状态</th>' +
+    '</tr></thead><tbody>' + list.map(function (j) { return journalRow(j, kind); }).join('') + '</tbody></table></div>';
+}
+
+function loadJournalCatalog(kw) {
+  var boxV = document.getElementById('jcat-verified');
+  var boxD = document.getElementById('jcat-dbonly');
+  var uniLine = document.getElementById('jcat-uni');
+  boxV.innerHTML = '<p class="muted">加载中…</p>';
+  boxD.innerHTML = '';
+  APP.myJournalCatalog(kw).then(function (d) {
+    jcatData = d;
+    if (!d.has_university) {
+      uniLine.innerHTML = '';
+      boxV.innerHTML = '<div class="empty-state"><p>你还没有填写所属院校。</p>' +
+        '<p class="muted">请先完善院校信息，才能查看和提交本校的期刊订阅信息。</p>' +
+        '<div class="btn-row"><button class="btn btn-sm" id="jcat-goto-uni" type="button">去完善院校信息</button></div></div>';
+      var g = document.getElementById('jcat-goto-uni');
+      if (g) g.addEventListener('click', function () {
+        var edit = document.getElementById('uni-edit');
+        if (edit) edit.click();
+        document.getElementById('uni-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      return;
+    }
+    document.getElementById('jsub-uni-value').textContent = d.university_name || '—';
+    uniLine.innerHTML = '当前院校：<strong>' + esc(d.university_name) + '</strong>' +
+      (kw ? ' · 搜索：' + esc(kw) : '');
+
+    var v = d.verified || [], db = d.database_only || [];
+    if (!v.length && !db.length) {
+      boxV.innerHTML = '<div class="empty-state"><p>' +
+        (kw ? '没有匹配「' + esc(kw) + '」的期刊订阅记录。' : '本校暂未建立已核验的期刊目录。') +
+        '</p><p class="muted">' + (kw ? '可以换个关键词，或' : '') + '你可以提交期刊订阅信息，管理员核实后会纳入正式目录。</p>' +
+        '<div class="btn-row"><button class="btn btn-sm" id="jcat-empty-submit" type="button">提交期刊订阅信息</button></div></div>';
+      var es = document.getElementById('jcat-empty-submit');
+      if (es) es.addEventListener('click', openSubmitForm);
+      return;
+    }
+    var html = '';
+    if (v.length) {
+      html += '<h3 style="margin-top:14px">已核验订阅的期刊（' + v.length + '）</h3>' + renderJournalTable(v, 'verified');
+    }
+    if (db.length) {
+      html += '<h3 style="margin-top:16px">仅确认订购数据库、具体期刊待核实（' + db.length + '）</h3>' +
+        '<p class="muted">学校图书馆页面可以证明该校订购了相应数据库，但不能证明该数据库内每一本期刊、每一年的全文都已订购，因此这些记录不计入已核验订阅。</p>' +
+        renderJournalTable(db, 'database_only');
+    }
+    boxV.innerHTML = html;
+    boxD.innerHTML = '';
+  }, function (err) {
+    boxV.innerHTML = '<p class="muted">期刊目录加载失败：' + esc(err.message || '未知错误') + '</p>';
+  });
+}
+
+// ---- 提交 / 修改 ----
+function openSubmitForm(sub) {
+  jsubEditingId = sub ? sub.id : null;
+  document.getElementById('jsub-form').classList.remove('hidden');
+  document.getElementById('jsub-title').value = sub ? (sub.journal_title || '') : '';
+  document.getElementById('jsub-issn').value = sub ? (sub.issn || '') : '';
+  document.getElementById('jsub-eissn').value = sub ? (sub.eissn || '') : '';
+  document.getElementById('jsub-publisher').value = sub ? (sub.publisher || '') : '';
+  document.getElementById('jsub-subject').value = sub ? (sub.subject || '') : '';
+  document.getElementById('jsub-db').value = sub ? (sub.database_name || '') : '';
+  document.getElementById('jsub-years').value = sub ? (sub.coverage_years || '') : '';
+  document.getElementById('jsub-url').value = sub ? (sub.library_url || '') : '';
+  document.getElementById('jsub-evidence').value = sub ? (sub.evidence_note || '') : '';
+  document.getElementById('jsub-remark').value = sub ? (sub.remark || '') : '';
+  document.getElementById('jsub-submit').textContent = sub ? '保存并重新提交审核' : '提交';
+  document.getElementById('jsub-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+document.getElementById('jsub-open').addEventListener('click', function () { openSubmitForm(null); });
+document.getElementById('jsub-cancel').addEventListener('click', function () {
+  document.getElementById('jsub-form').classList.add('hidden');
+  jsubEditingId = null;
+});
+
+document.getElementById('jsub-submit').addEventListener('click', function () {
+  var btn = this;
+  var p = {
+    journal_title: (document.getElementById('jsub-title').value || '').trim(),
+    issn: (document.getElementById('jsub-issn').value || '').trim(),
+    eissn: (document.getElementById('jsub-eissn').value || '').trim(),
+    publisher: (document.getElementById('jsub-publisher').value || '').trim(),
+    subject: (document.getElementById('jsub-subject').value || '').trim(),
+    database_name: (document.getElementById('jsub-db').value || '').trim(),
+    coverage_years: (document.getElementById('jsub-years').value || '').trim(),
+    library_url: (document.getElementById('jsub-url').value || '').trim(),
+    evidence_note: (document.getElementById('jsub-evidence').value || '').trim(),
+    remark: (document.getElementById('jsub-remark').value || '').trim()
+  };
+  if (p.journal_title.length < 2) { APP.showMsg(msg, '请填写期刊正式名称。', 'error'); return; }
+  if (p.library_url && !/^https?:\/\//i.test(p.library_url)) {
+    APP.showMsg(msg, '官方图书馆资源页面链接需以 http:// 或 https:// 开头。', 'error');
+    return;
+  }
+  btn.disabled = true;
+  var task = jsubEditingId
+    ? APP.updateJournalSubmission(Object.assign({ id: jsubEditingId }, p))
+    : APP.submitJournalSubscription(p);
+  task.then(function (r) {
+    btn.disabled = false;
+    APP.showMsg(msg, (r && r.message) || '提交成功，状态为待管理员审核。', 'success');
+    document.getElementById('jsub-form').classList.add('hidden');
+    jsubEditingId = null;
+    loadMySubmissions();
+    document.getElementById('jsub-list').classList.remove('hidden');
+  }, function (err) {
+    btn.disabled = false;
+    APP.showMsg(msg, '提交失败：' + (err.message || '未知错误'), 'error');
+  });
+});
+
+// ---- 我的提交记录 ----
+document.getElementById('jsub-list-open').addEventListener('click', function () {
+  var box = document.getElementById('jsub-list');
+  var show = box.classList.contains('hidden');
+  box.classList.toggle('hidden', !show);
+  if (show) loadMySubmissions();
+});
+
+function loadMySubmissions() {
+  var box = document.getElementById('jsub-list-body');
+  if (!box) return;
+  box.innerHTML = '<p class="muted">加载中…</p>';
+  APP.myJournalSubmissions(50).then(function (d) {
+    var rows = d.rows || [];
+    if (!rows.length) {
+      box.innerHTML = '<p class="muted">你还没有提交过期刊订阅信息。</p>';
+      return;
+    }
+    box.innerHTML = rows.map(function (s) {
+      var editable = s.status === 'pending' || s.status === 'need_info' || s.status === 'rejected';
+      var html = '<div class="req-item">' +
+        '<h3>' + esc(s.journal_title) + ' <span class="badge ' + APP.subStatusClass(s.status) + '">' + esc(APP.subStatusText(s.status)) + '</span></h3>' +
+        '<div class="meta"><span>' + esc(s.university_name || '') + '</span>' +
+        '<span>' + esc(APP.fmtTime(s.created_at)) + '</span></div>';
+      var detail = [];
+      if (s.issn) detail.push('ISSN ' + esc(s.issn));
+      if (s.eissn) detail.push('eISSN ' + esc(s.eissn));
+      if (s.publisher) detail.push(esc(s.publisher));
+      if (s.subject) detail.push(esc(s.subject));
+      if (s.database_name) detail.push('数据库：' + esc(s.database_name));
+      if (s.coverage_years) detail.push('年份/范围：' + esc(s.coverage_years));
+      if (detail.length) html += '<p class="muted">' + detail.join(' · ') + '</p>';
+      if (s.library_url) html += '<p class="muted">来源链接：<a href="' + esc(s.library_url) + '" target="_blank" rel="noopener noreferrer">' + esc(s.library_url) + '</a></p>';
+      if (s.evidence_note) html += '<p class="muted">其他依据：' + esc(s.evidence_note) + '</p>';
+      if (s.remark) html += '<p class="muted">补充说明：' + esc(s.remark) + '</p>';
+      if (s.admin_note) html += '<p class="muted">管理员意见：' + esc(s.admin_note) + '</p>';
+      if (s.reviewer_name && s.reviewed_at) html += '<p class="muted">审核人：' + esc(s.reviewer_name) + ' · ' + esc(APP.fmtTime(s.reviewed_at)) + '</p>';
+      if (editable) {
+        html += '<div class="btn-row" style="justify-content:flex-start;margin-top:8px">' +
+          '<button class="btn btn-sm btn-secondary" data-jsub-edit="' + s.id + '" type="button">修改并重新提交</button>' +
+          '<button class="btn btn-sm btn-danger" data-jsub-withdraw="' + s.id + '" type="button">撤回</button></div>';
+      } else if (s.status === 'approved') {
+        html += '<p class="muted">该期刊已通过管理员核实，可在上方「已核验订阅的期刊」中查看。</p>';
+      }
+      html += '</div>';
+      return html;
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jsub-edit]'), function (b) {
+      b.addEventListener('click', function () {
+        var id = Number(this.getAttribute('data-jsub-edit'));
+        var row = (rows || []).filter(function (x) { return x.id === id; })[0];
+        if (row) openSubmitForm(row);
+      });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-jsub-withdraw]'), function (b) {
+      b.addEventListener('click', function () {
+        var id = Number(this.getAttribute('data-jsub-withdraw'));
+        if (!confirm('确定撤回这条提交记录？撤回后管理员将不再审核它。')) return;
+        APP.withdrawJournalSubmission(id).then(function () {
+          loadMySubmissions();
+        }, function (err) {
+          APP.showMsg(msg, '撤回失败：' + (err.message || '未知错误'), 'error');
+        });
+      });
+    });
+  }, function (err) {
+    box.innerHTML = '<p class="muted">提交记录加载失败：' + esc(err.message || '未知错误') + '</p>';
+  });
+}
+
+/* ================= 每日推荐 ================= */
+function loadRecoSetting() {
+  var box = document.getElementById('reco-setting');
+  APP.myRecommendSetting().then(function (s) {
+    var uniLine = s.has_university
+      ? '当前院校：<strong>' + esc(s.university_name) + '</strong>'
+      : '<span class="muted">尚未填写院校信息，将只按研究方向与求助有效性推荐。</span>';
+    box.innerHTML =
+      '<div class="checkbox-row"><label style="display:block;margin-bottom:6px"><input type="radio" name="reco-mode" value="on"' + (s.enabled ? ' checked' : '') + '> 开启每日推荐</label>' +
+      '<label style="display:block"><input type="radio" name="reco-mode" value="off"' + (!s.enabled ? ' checked' : '') + '> 暂不接受推荐</label></div>' +
+      '<p class="muted" style="margin-top:8px">' + uniLine + '</p>' +
+      '<label for="reco-subjects">学科 / 研究方向标签 <span class="muted">（选填，用于第二优先级匹配，多个用逗号分隔）</span></label>' +
+      '<input type="text" id="reco-subjects" maxlength="200" placeholder="如 运营管理,供应链,knowledge management" value="' + esc(s.subjects || '') + '">' +
+      '<div class="btn-row" style="justify-content:flex-start;margin-top:10px">' +
+      '<button class="btn btn-sm" id="reco-save" type="button">保存设置</button></div>' +
+      '<p class="muted">默认关闭，只有你主动开启后才会生成推荐。院校信息是否公开与是否接受推荐是两件独立的事。</p>';
+    document.getElementById('reco-save').addEventListener('click', function () {
+      var btn = this;
+      var picked = box.querySelector('input[name="reco-mode"]:checked');
+      var enabled = picked && picked.value === 'on';
+      var subjects = (document.getElementById('reco-subjects').value || '').trim();
+      btn.disabled = true;
+      APP.setMyRecommendSetting(enabled, subjects).then(function () {
+        btn.disabled = false;
+        APP.showMsg(msg, enabled ? '已开启每日推荐。' : '已关闭每日推荐，不再生成新的推荐。', 'success');
+        loadRecoSetting();
+        loadRecoList();
+      }, function (err) {
+        btn.disabled = false;
+        APP.showMsg(msg, '保存失败：' + (err.message || '未知错误'), 'error');
+      });
+    });
+  }, function (err) {
+    box.innerHTML = '<p class="muted">推荐设置加载失败：' + esc(err.message || '未知错误') + '</p>';
+  });
+}
+
+function recoBadge(it) {
+  var cls = it.match_type === 'journal' ? 'st-resolved' : (it.match_type === 'major' ? 'st-open' : 'st-pending');
+  return '<span class="badge ' + cls + '">' + esc(it.reason) + '</span>';
+}
+
+function loadRecoList() {
+  var box = document.getElementById('reco-list');
+  box.innerHTML = '<p class="muted">加载中…</p>';
+  APP.myTodayRecommendations().then(function (d) {
+    if (!d.enabled) {
+      var hist = '';
+      if (d.last_batch_date) {
+        hist = '<p class="muted">上一次推荐批次：' + esc(d.last_batch_date) + '（' + (d.last_batch_total || 0) + ' 条）。关闭推荐后不会删除历史推荐记录。</p>';
+      }
+      box.innerHTML = '<div class="empty-state"><p>每日推荐当前是关闭状态，因此没有生成个性化推荐。</p>' +
+        '<p class="muted">开启后会每天推荐最多 5 条有效求助，优先匹配你所在院校已核验订阅的期刊。</p>' +
+        hist +
+        '<div class="btn-row"><button class="btn btn-sm" id="reco-enable-now" type="button">开启每日推荐</button></div></div>';
+      var b = document.getElementById('reco-enable-now');
+      if (b) b.addEventListener('click', function () {
+        APP.setMyRecommendSetting(true, '').then(function () {
+          APP.showMsg(msg, '已开启每日推荐。', 'success');
+          loadRecoSetting();
+          loadRecoList();
+        }, function (err) {
+          APP.showMsg(msg, '开启失败：' + (err.message || '未知错误'), 'error');
+        });
+      });
+      return;
+    }
+    var items = d.items || [];
+    var head = '<p class="muted">批次日期：' + esc(d.batch_date || d.today) + ' · 共 ' + (d.total || 0) +
+      ' 条（匹配已核验期刊 ' + (d.journal_count || 0) + ' 条 / 匹配研究方向 ' + (d.major_count || 0) +
+      ' 条 / 其他相关 ' + (d.other_count || 0) + ' 条）。同一天内重复打开不会变化。</p>' +
+      '<p class="muted">推荐只是匹配提示，不代表你所在学校一定能访问该篇论文的全文。</p>';
+    if (!items.length) {
+      box.innerHTML = head + '<p class="muted">今天没有符合条件的有效求助，因此不生成推荐（不会用虚假求助补足数量）。</p>';
+      return;
+    }
+    box.innerHTML = head + items.map(function (it) {
+      var cite = [];
+      if (it.journal) cite.push('<strong>' + esc(it.journal) + '</strong>');
+      if (it.published_year) cite.push(esc(String(it.published_year)));
+      var html = '<div class="req-item">' +
+        '<h3>#' + it.request_id + ' ' + esc(it.paper_title || '（未填写标题）') + ' ' + recoBadge(it) + demoTag(it.is_demo) + '</h3>' +
+        '<div class="meta"><span>期刊：' + (cite.length ? cite.join(' · ') : '未提供') + '</span>' +
+        (it.doi ? '<span>DOI：' + esc(it.doi) + '</span>' : '') +
+        '<span>状态：' + esc(it.status) + '</span></div>';
+      if (it.description) html += '<p class="muted">求助说明：' + esc(it.description) + '</p>';
+      if (it.match_type === 'journal' && it.subscription_is_demo) {
+        html += '<p class="muted">该期刊的订阅记录为演示测试数据，仅用于验证推荐排序，不代表真实订购范围。</p>';
+      } else if (it.match_type === 'journal') {
+        html += '<p class="muted">本校已核验订阅：范围年份 ' + esc(it.coverage_years || '待核实') + '。</p>';
+      }
+      html += '<div class="btn-row" style="justify-content:flex-start;margin-top:8px">' +
+        '<a class="btn btn-sm btn-secondary" href="request.html?id=' + it.request_id + '">查看求助</a></div></div>';
+      return html;
+    }).join('');
+  }, function (err) {
+    box.innerHTML = '<p class="muted">推荐加载失败：' + esc(err.message || '未知错误') + '</p>';
+  });
+}
+
+/* ================= 个人中心左侧目录：点击定位 / 滚动高亮 / 刷新恢复 =================
+ * 只做滚动与高亮，不触发任何数据加载，避免重复提交表单、重复请求通知或改变求助状态。
+ */
+(function () {
+  var nav = document.getElementById('pc-nav');
+  var content = document.getElementById('pc-content');
+  if (!nav || !content) return;
+
+  var links = Array.prototype.slice.call(nav.querySelectorAll('a[data-target]'));
+  var sections = links.map(function (a) {
+    return { link: a, el: document.getElementById(a.getAttribute('data-target')) };
+  }).filter(function (s) { return !!s.el; });
+  if (!sections.length) return;
+
+  function topNavHeight() {
+    var el = document.getElementById('nav');
+    return el ? el.getBoundingClientRect().height : 0;
+  }
+  function offset() { return topNavHeight() + 14; }
+
+  function setActive(id) {
+    sections.forEach(function (s) {
+      if (s.el.id === id) s.link.classList.add('active');
+      else s.link.classList.remove('active');
+    });
+  }
+
+  function jump(id, writeHash) {
+    var hit = null;
+    sections.forEach(function (s) { if (s.el.id === id) hit = s; });
+    if (!hit) return;
+    var y = hit.el.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - offset();
+    if (y < 0) y = 0;
+    try {
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    } catch (e) {
+      window.scrollTo(0, y);
+    }
+    setActive(id);
+    if (writeHash && window.history && history.replaceState) {
+      try { history.replaceState(null, '', '#' + id); } catch (e2) { /* 忽略 */ }
+    }
+  }
+
+  links.forEach(function (a) {
+    a.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      jump(a.getAttribute('data-target'), true);
+    });
+  });
+
+  // 根据滚动位置更新选中项（只读 DOM 位置，无副作用）
+  var ticking = false;
+  function syncActive() {
+    var line = offset() + 6;
+    var current = sections[0].el.id;
+    sections.forEach(function (s) {
+      if (s.el.getBoundingClientRect().top - line <= 0) current = s.el.id;
+    });
+    // 已滚到页面底部时，强制选中最后一项，避免末项永远无法高亮
+    var doc = document.documentElement;
+    if (window.pageYOffset + window.innerHeight >= doc.scrollHeight - 4) {
+      current = sections[sections.length - 1].el.id;
+    }
+    setActive(current);
+  }
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    var run = function () { ticking = false; syncActive(); };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run);
+    else setTimeout(run, 60);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+
+  // 页面高度会随数据异步加载变化：hash 定位在加载后校正一次
+  function restoreFromHash() {
+    var id = (location.hash || '').replace(/^#/, '');
+    if (id) jump(id, false);
+    else syncActive();
+    if (id) setTimeout(function () { jump(id, false); }, 700);
+  }
+  if (document.readyState === 'complete') restoreFromHash();
+  else window.addEventListener('load', restoreFromHash);
+})();
+</script>
+</body>
+</html>
