@@ -22,6 +22,7 @@ var path = require('path');
 var net = require('net');
 var CORE = require('./assets/doi-core.js');
 var SENDER = require('./email-sender.js');
+var proxyCloud = require('./cloud-proxy.js');
 
 var ROOT = __dirname;
 var PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -929,6 +930,10 @@ var server = http.createServer(function (req, res) {
     urlObj = new URL(req.url, 'http://localhost');
   } catch (e) {
     sendJson(res, 400, { error: { kind: 'bad_request', message: '请求地址不合法。' } });
+    return;
+  }
+  if (urlObj.pathname.indexOf('/.cloud/') === 0) {
+    proxyCloud(req, res, urlObj, DB_ORIGIN);
     return;
   }
   if (urlObj.pathname.indexOf('/api/') === 0 && req.method === 'OPTIONS') {

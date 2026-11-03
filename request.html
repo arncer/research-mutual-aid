@@ -23,7 +23,7 @@
     <div id="att-list"><p class="muted">加载中…</p></div>
 
     <div id="upload-area" class="hidden" style="margin-top:18px;border-top:1px solid #e5e7eb;padding-top:14px">
-      <h3>上传应助文件（仅 PDF，最大 20MB）</h3>
+      <h3>上传应助文件（仅 PDF，最大 <span id="upload-limit">4</span>MB）</h3>
       <div class="msg warn" style="display:block">上传即表示你确认有权分享该文件。学校订阅资源不能默认作为可公开分发的文件；新附件默认为「待审核」，由求助发布者审核通过后才能公开下载。</div>
       <label for="file">选择 PDF 文件</label>
       <input type="file" id="file" accept="application/pdf,.pdf">
@@ -51,6 +51,7 @@
 <script src="assets/app.js"></script>
 <script>
 var id = parseInt(APP.qs('id'), 10);
+document.getElementById('upload-limit').textContent = APP.uploadLimitMB;
 var session = null;
 var profile = null;
 var isAdmin = false;
@@ -410,7 +411,7 @@ document.getElementById('upload-btn').addEventListener('click', function () {
   if (!file) { APP.showMsg(msg, '请选择要上传的 PDF 文件。', 'error'); return; }
   var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
   if (!isPdf) { APP.showMsg(msg, '仅支持 PDF 格式文件。', 'error'); return; }
-  if (file.size > 20 * 1024 * 1024) { APP.showMsg(msg, '文件超过 20MB 限制。', 'error'); return; }
+  if (file.size > APP.uploadLimitMB * 1024 * 1024) { APP.showMsg(msg, '当前站点暂支持最大 ' + APP.uploadLimitMB + 'MB 的附件。', 'error'); return; }
   if (!document.getElementById('att_confirm').checked) {
     APP.showMsg(msg, '请先勾选「上传即表示你确认有权分享该文件」声明。', 'error'); return;
   }

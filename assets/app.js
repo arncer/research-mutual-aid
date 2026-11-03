@@ -24,9 +24,13 @@
     return;
   }
 
+  // Keep browser cloud calls same-origin; server.js relays them with user credentials.
+  // Leave room for multipart overhead below Vercel's 4.5 MB request limit.
+  var UPLOAD_LIMIT_MB = location.hostname === 'research-aid.app.workbuddy.host' ? 20 : 4;
+
   // ---- 云服务初始化（publicConfig，仅含前端安全值）----
   var cloud = WorkBuddyCloud.createWorkBuddyCloud({
-    endpoint: 'https://research-aid.app.workbuddy.host',
+    endpoint: location.origin,
     oauthRelayBaseUrl: 'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
     publishableKey: 'wbpk_1NOm2SkmmEHnBAIYJLFNUY_CFAUhjm5HhsbG0rdLqH2oYNg0pKSml14'
   });
@@ -1018,7 +1022,7 @@
   // 这里仅替换传输层：上传签名与权限校验仍在服务端完成（必须登录），
   // 请求头只用 CORS 允许清单内的 Authorization / x-wb-webapp-access-key / Content-Type。
   // 平台修复 CORS 后应回退到 SDK 的 cloud.storage.upload / createSignedUrl。
-  var CLOUD_ENDPOINT = 'https://research-aid.app.workbuddy.host';
+  var CLOUD_ENDPOINT = location.origin;
   var PUB_KEY = 'wbpk_1NOm2SkmmEHnBAIYJLFNUY_CFAUhjm5HhsbG0rdLqH2oYNg0pKSml14';
 
   function uuid() {
@@ -1058,6 +1062,9 @@
   //       2) 用 PUT + FormData 把文件写到签名地址（凭证在 URL 的 token 参数中，无需其他请求头）。
   // 注意：必须用 PUT —— 该签名地址只接受 PUT，POST 会被网关判为缺少凭证（401 MISSING_CREDENTIALS）。
   function uploadFile(file, path) {
+    if (file.size > UPLOAD_LIMIT_MB * 1024 * 1024) {
+      return Promise.reject(new Error('当前站点暂支持最大 ' + UPLOAD_LIMIT_MB + 'MB 的附件。'));
+    }
     return storageApi('/object/upload/sign/runtime/' + path, {}).then(function (data) {
       if (!data || !data.url) throw new Error('未获得上传凭证，请重新登录后重试。');
       var rel = String(data.url);
@@ -1494,6 +1501,7 @@
     downloadText: downloadText,
     uuid: uuid,
     uploadFile: uploadFile,
+    uploadLimitMB: UPLOAD_LIMIT_MB,
     getSignedDownloadUrl: getSignedDownloadUrl,
     downloadFile: downloadFile,
     renderOaBlock: renderOaBlock,
