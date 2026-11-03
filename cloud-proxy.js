@@ -30,6 +30,18 @@ module.exports = function proxyCloud(req, res, urlObj, origin) {
     if (req.headers[name]) headers[name] = req.headers[name];
   });
 
+  // These endpoints establish a session using credentials in the request body.
+  // An inherited/stale bearer must not prevent a fresh password or OTP login.
+  // Keep Authorization untouched on user/profile and all protected APIs.
+  var publicAuthPaths = [
+    '/.cloud/auth/v1/signin', '/.cloud/auth/v1/signup',
+    '/.cloud/auth/v1/verification', '/.cloud/auth/v1/verification/verify',
+    '/.cloud/auth/v1/token'
+  ];
+  if (publicAuthPaths.indexOf(pathname.replace(/\/$/, '')) >= 0) {
+    delete headers.authorization;
+  }
+
   // This is a server-to-server request, not a forwarded browser session.
   // Cookies, browser Origin/Referer and hosting-platform credentials stay local.
   var upstream = https.request(target, { method: req.method, headers: headers }, function (response) {
