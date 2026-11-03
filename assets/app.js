@@ -28,8 +28,32 @@
   // Leave room for multipart overhead below Vercel's 4.5 MB request limit.
   var UPLOAD_LIMIT_MB = location.hostname === 'research-aid.app.workbuddy.host' ? 20 : 4;
 
+  // Report only the failing auth phase; never log request bodies or credentials.
+  function cloudFetch(input, init) {
+    return fetch(input, init).then(function (response) {
+      var path = new URL(String(input), location.origin).pathname;
+      var phases = {
+        '/.cloud/auth/v1/verification': '发送验证码',
+        '/.cloud/auth/v1/verification/verify': '核验验证码',
+        '/.cloud/auth/v1/signin': '签发登录会话',
+        '/.cloud/auth/v1/signup': '注册账号',
+        '/.cloud/auth/v1/token': '刷新登录会话'
+      };
+      if (response.ok || !phases[path]) return response;
+      return response.clone().json().then(function (body) {
+        if (!body || typeof body !== 'object') return response;
+        body.error_description = phases[path] + '失败（HTTP ' + response.status +
+          '，' + (body.error || body.code || 'unknown') + '）：' +
+          (body.error_description || body.message || '认证服务拒绝请求');
+        return new Response(JSON.stringify(body), { status: response.status,
+          headers: { 'Content-Type': 'application/json' } });
+      }).catch(function () { return response; });
+    });
+  }
+
   // ---- 云服务初始化（publicConfig，仅含前端安全值）----
   var cloud = WorkBuddyCloud.createWorkBuddyCloud({
+    fetch: cloudFetch,
     endpoint: location.origin,
     oauthRelayBaseUrl: 'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
     publishableKey: 'wbpk_1NOm2SkmmEHnBAIYJLFNUY_CFAUhjm5HhsbG0rdLqH2oYNg0pKSml14'

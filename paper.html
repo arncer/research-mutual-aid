@@ -191,7 +191,7 @@ function listItems(list) {
 }
 
 // ---- DOI 查询：本地库优先 → 外部多来源（按注册机构路由）----
-var SOURCE_NAME = { crossref: 'Crossref', datacite: 'DataCite', openalex: 'OpenAlex', doicn: 'doi.org 内容协商' };
+var SOURCE_NAME = { crossref: 'Crossref', datacite: 'DataCite', openalex: 'OpenAlex', doicn: 'doi.org 内容协商', cnki: 'CNKI DOI 官方解析页' };
 
 function doQuery(rawInput) {
   var doi = APP.normalizeDoi(rawInput);

@@ -68,7 +68,29 @@
     'article': '期刊论文', 'thesis': '学位论文'
   };
 
-  var SOURCE_LABEL = { crossref: 'Crossref', datacite: 'DataCite', openalex: 'OpenAlex', doicn: 'doi.org 内容协商' };
+  var SOURCE_LABEL = { crossref: 'Crossref', datacite: 'DataCite', openalex: 'OpenAlex', doicn: 'doi.org 内容协商', cnki: 'CNKI DOI 官方解析页' };
+
+  function parseCnkiResolution(data, expectedDoi) {
+    var html = data && data.html;
+    if (typeof html !== 'string') return null;
+    var fields = {};
+    var cells = /<td\b[^>]*>\s*<label\b[^>]*>([\s\S]*?)<\/label>([\s\S]*?)<\/td>/gi;
+    var match;
+    function text(value) { return decodeEntities(value.replace(/<[^>]*>/g, '')).trim(); }
+    while ((match = cells.exec(html))) {
+      fields[text(match[1]).replace(/[：:\s]/g, '')] = text(match[2]);
+    }
+    var doi = normalizeDoi(fields['DOI码']);
+    if (!doi || doi !== normalizeDoi(expectedDoi) || !fields['题名']) return null;
+    return {
+      doi: doi, title: fields['题名'], authors: (fields['作者'] || '').replace(/[;；]+$/, ''),
+      journal: fields['来源'] || '', publisher: fields['出版机构'] || '',
+      published_year: /^\d{4}$/.test(fields['出版年'] || '') ? Number(fields['出版年']) : null,
+      volume: null, issue: null, pages: null, issn: null,
+      doi_url: 'https://doi.org/' + doi, source_url: 'https://doi.org/' + doi,
+      oa_url: '', license: ''
+    };
+  }
 
   // Crossref：message 结构（卷 / 期 / 页码 / 文章号 / ISSN / 类型均映射）
   function parseCrossrefMessage(m) {
@@ -215,6 +237,10 @@
 
   // 各来源的 URL 构造与响应解析（URL 构造按各 API 真实接口格式分别处理，不复用同一函数）
   function sourceDef(name, enc) {
+    if (name === 'cnki') {
+      return { url: 'https://www.chndoi.org/Resolution/Handler?doi=' + enc, accept: 'text/html',
+        parse: function (j) { return parseCnkiResolution(j, decodeURIComponent(enc)); } };
+    }
     if (name === 'crossref') {
       // Crossref REST：DOI 整体 URL 编码（斜杠编码为 %2F 是官方推荐形式）
       return { url: 'https://api.crossref.org/works/' + enc, accept: 'application/json',
@@ -278,6 +304,7 @@
     return httpGet('https://doi.org/ra/' + enc, 'application/json', 6000).then(function (res) {
       var ra = (Array.isArray(res.json) && res.json[0] && res.json[0].RA) || '';
       attempts.push({ source: 'doi.org/ra', status: res.httpStatus, ms: res.elapsedMs, result: ra || 'unknown' });
+      if (/cnki/i.test(ra)) return ['cnki', 'crossref', 'datacite', 'openalex', 'doicn'];
       if (/datacite/i.test(ra)) return ['datacite', 'crossref', 'openalex', 'doicn'];
       return ['crossref', 'datacite', 'openalex', 'doicn'];
     }, function (err) {
@@ -323,6 +350,7 @@
     parseDataciteDoi: parseDataciteDoi,
     parseOpenalexWork: parseOpenalexWork,
     parseCslJson: parseCslJson,
+    parseCnkiResolution: parseCnkiResolution,
     lookupPaperMetadata: lookupPaperMetadata
   };
 });

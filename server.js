@@ -110,6 +110,9 @@ function serverHttpGet(url, accept, timeoutMs) {
       if (res.status === 404) throw CORE.doiError('not_found', 'HTTP 404', { httpStatus: 404, elapsedMs: ms });
       if (!res.ok) throw CORE.doiError('http', 'HTTP ' + res.status, { httpStatus: res.status, elapsedMs: ms });
       return res.text().then(function (text) {
+        if (accept === 'text/html') {
+          return { json: { html: text }, httpStatus: res.status, elapsedMs: Date.now() - started };
+        }
         var body = null;
         try { body = JSON.parse(text); } catch (e) { body = null; }
         if (body === null) {
@@ -130,7 +133,7 @@ function serverHttpGet(url, accept, timeoutMs) {
   return rawHttpGet(url, headers, ms0, 3).then(function (r) {
     var fake = { status: r.status, ok: r.status >= 200 && r.status < 300 };
     var body;
-    try { body = JSON.parse(r.text); } catch (e) { body = null; }
+    try { body = accept === 'text/html' ? { html: r.text } : JSON.parse(r.text); } catch (e) { body = null; }
     if (fake.ok && body === null) {
       throw CORE.doiError('http', 'HTTP ' + r.status + '（响应不是 JSON）', { httpStatus: r.status, elapsedMs: Date.now() - started });
     }
