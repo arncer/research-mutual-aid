@@ -3,12 +3,12 @@
 <body><main class="container"><div class="card"><h1>邮箱登录检查</h1>
 <p>使用原站能登录的邮箱。每次测试重新获取验证码，只点击一次登录。页面不会显示密码、验证码或完整令牌。</p>
 <label for="email">① 登录邮箱</label><input id="email" type="email" autocomplete="username" placeholder="输入你的登录邮箱">
-<label for="mode">② 本次测试方式</label><select id="mode"><option value="server">服务端合并流程</option><option value="browser">普通浏览器流程</option></select>
-<p class="muted">两种方式必须分别获取新的验证码。结果只用于对照，不会自动判定平台根因。</p>
+<label for="mode">② 本次测试方式</label><select id="mode"><option value="registered">B 组：携带应用登记域 Origin（本次先选）</option><option value="absent">A 组：不携带 Origin（原基线）</option></select>
+<p class="muted">你之前失败的合并流程属于 A 组。本次先用新验证码测试 B 组。每组各自核验一次、登录一次；任何一组成功就停止，继续检查刷新后登录状态。此选择仅影响本次诊断，不改变普通登录配置。</p>
 <button class="btn" id="send">③ 获取新的邮箱验证码</button>
 <label for="code">④ 邮件中的验证码</label><input id="code" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="自己输入收到的验证码">
 <button class="btn" id="login" disabled>⑤ 验证并登录一次</button>
 <button class="btn btn-secondary" id="refresh" hidden>⑥ 刷新并检查登录是否保留</button>
-<pre id="result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:20px">请按编号操作。首次选择“服务端合并流程”。</pre>
+<pre id="result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:20px">请按编号操作。本次保持 B 组选项，获取一条新验证码。</pre>
 <p><a href="/login.html">返回普通登录页</a> · <a href="/index.html">首页</a></p>
 </div></main><script src="/assets/workbuddy-cloud-sdk.js"></script><script src="/assets/app.js"></script><script src="/assets/login-diagnostic.js"></script></body></html>

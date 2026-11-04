@@ -27,6 +27,8 @@ module.exports = async function otpLogin(req, res, origin, key) {
     body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch (e) { return reply(400, { ok: false, stage: 'input', message: '请求格式不正确。' }); }
   if (!body || typeof body !== 'object') return reply(400, { ok: false, stage: 'input' });
+  var originMode = body.originMode || 'absent';
+  if (originMode !== 'absent' && originMode !== 'registered') return reply(400, { ok: false, stage: 'input', message: '测试方式不正确。' });
   var email = typeof body.email === 'string' ? body.email.trim() : '';
   var phone = typeof body.phone === 'string' ? body.phone.replace(/\D/g, '').replace(/^0086/, '') : '';
   if (phone.length === 13 && phone.indexOf('86') === 0) phone = phone.slice(2);
@@ -37,7 +39,7 @@ module.exports = async function otpLogin(req, res, origin, key) {
     return reply(400, { ok: false, stage: 'input', message: '请检查账号、验证码，并先获取新的验证码。' });
   }
   var agent = new https.Agent({ keepAlive: true, maxSockets: 1 });
-  var jar = new Map(), localCookies = [], trace = [], firstSocket;
+  var jar = new Map(), localCookies = [], trace = [], firstSocket, grantExpiry = null;
   context.readAuthCookies(req.headers.cookie).split(';').forEach(function (part) {
     var at = part.indexOf('=');
     if (at > 0) jar.set(part.slice(0, at).trim(), part.slice(at + 1));
@@ -46,6 +48,10 @@ module.exports = async function otpLogin(req, res, origin, key) {
     return new Promise(function (resolve, reject) {
       var data = payload === undefined ? null : JSON.stringify(payload);
       var headers = { 'x-wb-webapp-access-key': key, 'accept': 'application/json', 'accept-encoding': 'identity' };
+      // Fixed application-owned upstream only. This option is diagnostic-only;
+      // it does not change the normal cloud proxy's Origin policy.
+      if (originMode === 'registered') headers.origin = new URL(origin).origin;
+      var grantSeconds = grantExpiry === null ? null : grantExpiry - Math.floor(Date.now() / 1000);
       if (data !== null) { headers['content-type'] = 'application/json'; headers['content-length'] = Buffer.byteLength(data); }
       ['user-agent', 'accept-language'].forEach(function (h) { if (req.headers[h]) headers[h] = req.headers[h]; });
       if (jar.size) headers.cookie = Array.from(jar).map(function (pair) { return pair.join('='); }).join('; ');
@@ -67,7 +73,9 @@ module.exports = async function otpLogin(req, res, origin, key) {
           });
           trace.push({ stage: stage, status: r.statusCode, requestId: result.requestId || result.request_id ||
             r.headers['x-request-id'] || r.headers['x-cloudbase-request-id'] || '',
-            cookieCount: cookies.length, sameConnectionAsVerify: firstSocket ? socket === firstSocket : null });
+            cookieCount: cookies.length, originMode: originMode,
+            declaredGrantSeconds: stage === 'signin' ? grantSeconds : null,
+            sameConnectionAsVerify: firstSocket ? socket === firstSocket : null });
           if (!firstSocket) firstSocket = socket;
           resolve({ status: r.statusCode, data: result });
         });
@@ -91,6 +99,12 @@ module.exports = async function otpLogin(req, res, origin, key) {
   try {
     var verified = await call(stage, '/.cloud/auth/v1/verification/verify', { verification_id: body.verificationId, verification_code: body.code });
     if (verified.status !== 200 || !verified.data.verification_token) return failure(verified);
+    // Read only the declared expiry for diagnostics; this is not JWT validation.
+    try {
+      var segments = String(verified.data.verification_token).split('.');
+      var claims = segments.length === 3 ? JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8')) : {};
+      if (typeof claims.exp === 'number' && Number.isFinite(claims.exp)) grantExpiry = claims.exp;
+    } catch (e) { /* Opaque or non-JWT grants are left untouched. */ }
     stage = 'signin';
     var signed = await call(stage, '/.cloud/auth/v1/signin', { username: username, verification_token: verified.data.verification_token });
     if (signed.status !== 200 || typeof signed.data.access_token !== 'string' || !signed.data.access_token) return failure(signed);

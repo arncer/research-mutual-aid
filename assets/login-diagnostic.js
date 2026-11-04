@@ -1,12 +1,12 @@
 (function () {
   'use strict';
-  var pending = null, cooldown = false, busy = false;
+  var pending = null, cooldown = false, busy = false, completed = false;
   var email = document.getElementById('email'), mode = document.getElementById('mode');
   var code = document.getElementById('code'), send = document.getElementById('send');
   var login = document.getElementById('login'), refresh = document.getElementById('refresh');
   var output = document.getElementById('result');
   function show(text) { output.textContent = text; }
-  function controls() { send.disabled = busy || cooldown; login.disabled = busy || !pending; email.disabled = mode.disabled = busy; }
+  function controls() { send.disabled = busy || cooldown || completed; login.disabled = busy || !pending || completed; email.disabled = mode.disabled = busy || completed; }
   function invalidate() { pending = null; code.value = ''; controls(); }
   email.addEventListener('input', invalidate); mode.addEventListener('change', invalidate);
   send.addEventListener('click', async function () {
@@ -30,7 +30,9 @@
   });
   function safeTrace(trace) {
     return trace.map(function (step) { return step.stage + '：HTTP ' + step.status +
-      (step.requestId ? '，请求编号 ' + step.requestId : '') + '，响应 Cookie 数 ' + step.cookieCount +
+      (step.requestId ? '，请求编号 ' + String(step.requestId).split(',').map(function (id) { return id.trim(); }).filter(function (id, index, ids) { return id && ids.indexOf(id) === index; }).join(', ') : '') + '，响应 Cookie 数 ' + step.cookieCount +
+      '，测试组：' + (step.originMode === 'registered' ? 'B（登记域 Origin）' : 'A（无 Origin）') +
+      (typeof step.declaredGrantSeconds === 'number' ? '，凭证声明剩余 ' + step.declaredGrantSeconds + ' 秒' : '') +
       (typeof step.sameConnectionAsVerify === 'boolean' ? '，复用核验连接：' + (step.sameConnectionAsVerify ? '是' : '否') : ''); }).join('\n');
   }
   login.addEventListener('click', async function () {
@@ -45,10 +47,10 @@
         session = result.data;
       } else {
         var response = await fetch('/api/auth/otp-login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: attempt.email, verificationId: attempt.verificationId, code: digits }) });
+          body: JSON.stringify({ email: attempt.email, verificationId: attempt.verificationId, code: digits, originMode: attempt.mode }) });
         var data = await response.json();
         var trace = data.trace ? safeTrace(data.trace) : '';
-        if (!data.ok) return show('服务端流程失败\n阶段：' + data.stage + '\nHTTP：' + (data.status || response.status) +
+        if (!data.ok) return show((attempt.mode === 'registered' ? 'B 组' : 'A 组') + '服务端流程失败\n阶段：' + data.stage + '\nHTTP：' + (data.status || response.status) +
           '\n错误码：' + (data.code || 'unknown') + '\n说明：' + (data.message || '') + '\n' + trace + '\n请勿重用这条验证码。');
         var raw = data.session;
         if (!raw || !raw.access_token || !raw.refresh_token || !(Number(raw.expires_in) > 0)) return show('签发响应不完整，未写入登录状态。');
@@ -61,6 +63,7 @@
       var me = await APP.cloud.auth.getUser();
       if (me.error || !me.data || !me.data.id) return show('签发成功，但读取当前用户失败：' + ((me.error && me.error.message) || '未返回用户身份'));
       refresh.hidden = false;
+      completed = true;
       show('本次登录及读取当前用户成功。\n请点击⑥，确认刷新后仍保持登录。');
     } catch (e) { show('检查失败：' + (e.message || '网络或存储异常') + '\n请重新获取验证码后再试。'); }
     finally { code.value = ''; busy = false; controls(); }
@@ -69,6 +72,7 @@
   if (sessionStorage.getItem('login-diagnostic-refresh') === '1') {
     sessionStorage.removeItem('login-diagnostic-refresh');
     APP.cloud.auth.getUser().then(function (result) {
+      if (!result.error && result.data && result.data.id) { completed = true; controls(); }
       show(result.error || !result.data || !result.data.id ? '刷新后读取用户失败，尚未通过保持登录检查。' : '检查通过：刷新后仍可读取当前用户。可以返回首页使用。');
     }).catch(function () { show('刷新后检查失败，请检查网络。'); });
   }
