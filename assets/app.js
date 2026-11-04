@@ -42,9 +42,13 @@
       if (response.ok || !phases[path]) return response;
       return response.clone().json().then(function (body) {
         if (!body || typeof body !== 'object') return response;
+        var requestId = body.requestId || body.request_id || response.headers.get('x-request-id') ||
+          response.headers.get('x-cloudbase-request-id');
+        if (requestId) body.requestId = requestId;
         body.error_description = phases[path] + '失败（HTTP ' + response.status +
           '，' + (body.error || body.code || 'unknown') + '）：' +
-          (body.error_description || body.message || '认证服务拒绝请求');
+          (body.error_description || body.message || '认证服务拒绝请求') +
+          (requestId ? '（请求编号：' + requestId + '）' : '');
         return new Response(JSON.stringify(body), { status: response.status,
           headers: { 'Content-Type': 'application/json' } });
       }).catch(function () { return response; });
