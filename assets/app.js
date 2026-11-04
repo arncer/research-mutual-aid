@@ -29,9 +29,39 @@
   var UPLOAD_LIMIT_MB = location.hostname === 'research-aid.app.workbuddy.host' ? 20 : 4;
 
   // Report only the failing auth phase; never log request bodies or credentials.
+  // Keep only a short-lived in-memory fingerprint, never the verification token.
+  var verificationProof = null;
+  function tokenProof(token) {
+    if (!window.crypto || !window.crypto.subtle || typeof TextEncoder === 'undefined') return Promise.resolve(null);
+    return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)).then(function (bytes) {
+      return Array.prototype.map.call(new Uint8Array(bytes), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }).catch(function () { return null; });
+  }
   function cloudFetch(input, init) {
+    var path = new URL(String(input), location.origin).pathname;
+    var isOtpSignin = false;
+    var comparison = Promise.resolve(null);
+    if (path === '/.cloud/auth/v1/verification') verificationProof = null;
+    if (path === '/.cloud/auth/v1/signin') {
+      try {
+        var payload = JSON.parse((init && init.body) || '{}');
+        isOtpSignin = typeof payload.verification_token === 'string';
+        if (isOtpSignin && verificationProof && Date.now() - verificationProof.at < 300000) {
+          comparison = Promise.all([verificationProof.hash, tokenProof(payload.verification_token)]).then(function (hashes) {
+            return hashes[0] && hashes[1] ? hashes[0] === hashes[1] : null;
+          });
+        }
+      } catch (e) { /* The authentication service reports malformed requests. */ }
+      verificationProof = null;
+    }
     return fetch(input, init).then(function (response) {
-      var path = new URL(String(input), location.origin).pathname;
+      if (path === '/.cloud/auth/v1/verification/verify' && response.ok) {
+        return response.clone().json().then(function (body) {
+          verificationProof = body && typeof body.verification_token === 'string' && body.verification_token
+            ? { hash: tokenProof(body.verification_token), at: Date.now() } : null;
+          return response;
+        }).catch(function () { verificationProof = null; return response; });
+      }
       var phases = {
         '/.cloud/auth/v1/verification': '发送验证码',
         '/.cloud/auth/v1/verification/verify': '核验验证码',
@@ -40,14 +70,18 @@
         '/.cloud/auth/v1/token': '刷新登录会话'
       };
       if (response.ok || !phases[path]) return response;
-      return response.clone().json().then(function (body) {
+      return Promise.all([response.clone().json(), comparison]).then(function (values) {
+        var body = values[0];
         if (!body || typeof body !== 'object') return response;
         var requestId = body.requestId || body.request_id || response.headers.get('x-request-id') ||
           response.headers.get('x-cloudbase-request-id');
+        if (requestId) requestId = String(requestId).split(',').map(function (id) { return id.trim(); })
+          .filter(function (id, index, ids) { return id && ids.indexOf(id) === index; }).join(', ');
         if (requestId) body.requestId = requestId;
         body.error_description = phases[path] + '失败（HTTP ' + response.status +
           '，' + (body.error || body.code || 'unknown') + '）：' +
           (body.error_description || body.message || '认证服务拒绝请求') +
+          (isOtpSignin ? '（核验凭证与提交凭证：' + (values[1] === true ? '一致' : values[1] === false ? '不一致' : '未能自动比对') + '）' : '') +
           (requestId ? '（请求编号：' + requestId + '）' : '');
         return new Response(JSON.stringify(body), { status: response.status,
           headers: { 'Content-Type': 'application/json' } });
