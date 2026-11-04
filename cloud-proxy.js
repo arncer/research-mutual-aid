@@ -59,6 +59,11 @@ module.exports = function proxyCloud(req, res, urlObj, origin) {
     'x-upsert', 'x-client-info', 'user-agent', 'accept-language'].forEach(function (name) {
     if (req.headers[name]) headers[name] = req.headers[name];
   });
+  // The real-account diagnostic succeeds with this registered application
+  // context, including /user/me. Use it consistently on session refresh,
+  // protected reads and writes as well as on initial sign-in.
+  // Derive it from the fixed server-side upstream, never from browser input.
+  headers.origin = target.origin;
 
   // These endpoints establish a session using credentials in the request body.
   // An inherited/stale bearer must not prevent a fresh password or OTP login.
@@ -80,9 +85,11 @@ module.exports = function proxyCloud(req, res, urlObj, origin) {
 
   // This is a server-to-server request, not a forwarded browser session.
   // Only namespaced cloud-auth cookies make the round trip. Hosting-platform
-  // cookies and browser Origin/Referer are not sent to the cloud API.
+  // cookies and browser Origin/Referer are not forwarded to the cloud API.
+  // The application Origin above is set by this server, including for GETs
+  // where browsers do not normally supply an Origin header.
   var upstream = https.request(target, { method: req.method, headers: headers }, function (response) {
-    var out = { 'cache-control': 'private, no-store' };
+    var out = { 'cache-control': 'private, no-store', 'x-wb-cloud-context': 'registered' };
     ['content-type', 'content-encoding', 'content-length', 'content-range',
       'accept-ranges', 'content-disposition', 'retry-after', 'www-authenticate',
       'x-request-id', 'x-cloudbase-request-id'].forEach(function (name) {
