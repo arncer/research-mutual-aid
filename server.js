@@ -23,6 +23,7 @@ var net = require('net');
 var CORE = require('./assets/doi-core.js');
 var SENDER = require('./email-sender.js');
 var proxyCloud = require('./cloud-proxy.js');
+var otpLoginDiagnostic = require('./auth-otp-login.js');
 
 var ROOT = __dirname;
 var PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -933,6 +934,10 @@ var server = http.createServer(function (req, res) {
     urlObj = new URL(req.url, 'http://localhost');
   } catch (e) {
     sendJson(res, 400, { error: { kind: 'bad_request', message: '请求地址不合法。' } });
+    return;
+  }
+  if (urlObj.pathname === '/api/auth/otp-login') {
+    otpLoginDiagnostic(req, res, DB_ORIGIN, PUBLIC_KEY);
     return;
   }
   if (urlObj.pathname.indexOf('/.cloud/') === 0) {

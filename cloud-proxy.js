@@ -106,3 +106,7 @@ module.exports = function proxyCloud(req, res, urlObj, origin) {
   res.on('close', function () { if (!res.writableFinished) upstream.destroy(); });
   req.pipe(upstream);
 };
+module.exports.readAuthCookies = upstreamAuthCookies;
+module.exports.localAuthCookie = localAuthCookie;
+module.exports.readAuthCookies = upstreamAuthCookies;
+module.exports.localAuthCookie = localAuthCookie;
