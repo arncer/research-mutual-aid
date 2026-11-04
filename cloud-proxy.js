@@ -1,6 +1,36 @@
 'use strict';
 
 var https = require('node:https');
+var AUTH_COOKIE_PREFIX = 'wbcloud_auth_';
+
+function upstreamAuthCookies(cookieHeader) {
+  return String(cookieHeader || '').split(';').map(function (part) {
+    var at = part.indexOf('=');
+    if (at < 0) return '';
+    var name = part.slice(0, at).trim();
+    if (name.indexOf(AUTH_COOKIE_PREFIX) !== 0) return '';
+    try {
+      var encoded = name.slice(AUTH_COOKIE_PREFIX.length);
+      var original = Buffer.from(encoded, 'base64url').toString('utf8');
+      if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(original)) return '';
+      return original + '=' + part.slice(at + 1).trim();
+    } catch (e) { return ''; }
+  }).filter(Boolean).join('; ');
+}
+
+function localAuthCookie(cookie) {
+  var parts = String(cookie).split(';');
+  var at = parts[0].indexOf('=');
+  if (at < 1) return null;
+  var original = parts[0].slice(0, at).trim();
+  if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(original)) return null;
+  var name = AUTH_COOKIE_PREFIX + Buffer.from(original).toString('base64url');
+  var attrs = parts.slice(1).filter(function (attr) { return !/^\s*(domain|path)\s*=/i.test(attr); });
+  if (!attrs.some(function (attr) { return /^\s*samesite\s*=/i.test(attr); })) attrs.push(' SameSite=Lax');
+  if (!attrs.some(function (attr) { return /^\s*httponly\s*$/i.test(attr); })) attrs.push(' HttpOnly');
+  return name + parts[0].slice(at) + '; Path=/.cloud/auth' +
+    (attrs.length ? ';' + attrs.join(';') : '');
+}
 
 // Only the application's cloud APIs are relayed. User credentials pass through;
 // this transport never supplies an administrator or worker credential.
@@ -26,7 +56,7 @@ module.exports = function proxyCloud(req, res, urlObj, origin) {
   var headers = { 'accept-encoding': 'identity' };
   ['authorization', 'x-wb-webapp-access-key', 'content-type', 'content-length',
     'accept', 'prefer', 'range', 'accept-profile', 'content-profile',
-    'x-upsert', 'x-client-info'].forEach(function (name) {
+    'x-upsert', 'x-client-info', 'user-agent', 'accept-language'].forEach(function (name) {
     if (req.headers[name]) headers[name] = req.headers[name];
   });
 
@@ -42,14 +72,25 @@ module.exports = function proxyCloud(req, res, urlObj, origin) {
     delete headers.authorization;
   }
 
+  var isAuth = pathname.indexOf('/.cloud/auth/') === 0;
+  if (isAuth) {
+    var cookie = upstreamAuthCookies(req.headers.cookie);
+    if (cookie) headers.cookie = cookie;
+  }
+
   // This is a server-to-server request, not a forwarded browser session.
-  // Cookies, browser Origin/Referer and hosting-platform credentials stay local.
+  // Only namespaced cloud-auth cookies make the round trip. Hosting-platform
+  // cookies and browser Origin/Referer are not sent to the cloud API.
   var upstream = https.request(target, { method: req.method, headers: headers }, function (response) {
     var out = { 'cache-control': 'private, no-store' };
     ['content-type', 'content-encoding', 'content-length', 'content-range',
-      'accept-ranges', 'content-disposition', 'retry-after', 'www-authenticate'].forEach(function (name) {
+      'accept-ranges', 'content-disposition', 'retry-after', 'www-authenticate',
+      'x-request-id', 'x-cloudbase-request-id'].forEach(function (name) {
       if (response.headers[name]) out[name] = response.headers[name];
     });
+    if (isAuth && response.headers['set-cookie']) {
+      out['set-cookie'] = [].concat(response.headers['set-cookie']).map(localAuthCookie).filter(Boolean);
+    }
     res.writeHead(response.statusCode, out);
     response.on('error', function () { res.destroy(); });
     response.pipe(res);
